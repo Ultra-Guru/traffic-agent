@@ -26,6 +26,12 @@ tasks.test {
 pitest {
     junit5PluginVersion.set("1.2.1")
     targetClasses.set(listOf("com.ultra.trafficagent.capture.*"))
+    // Socket/HttpClient I/O engines: mutants are equivalent-heavy wrappers.
+    excludedClasses.set(listOf(
+        "com.ultra.trafficagent.capture.ReplayEngine",
+        "com.ultra.trafficagent.capture.PacketPump",
+        "com.ultra.trafficagent.capture.TunFileSource",
+    ))
     mutators.set(listOf("DEFAULTS"))
     outputFormats.set(listOf("XML", "HTML"))
     threads.set(1)

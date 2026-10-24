@@ -3,6 +3,7 @@ package com.ultra.trafficagent.analysis
 import com.ultra.trafficagent.capture.CapturedRequest
 import com.ultra.trafficagent.capture.Protocol
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -180,5 +181,103 @@ class CaptureRepositoryTest {
         assertEquals(1, counts[2])
         assertEquals(1, counts[4])
         assertEquals(1, counts[5])
+    }
+}
+
+/** Full token-matrix coverage: every DSL branch gets an exercising pair. */
+class FilterEngineTokenMatrixTest {
+
+    private fun capture(
+        id: Long,
+        host: String = "matrix.example.com",
+        path: String = "/deep/path/file.bin?k=v",
+        method: String = "GET",
+        status: Int? = 200,
+        body: String = "needle-in-haystack",
+        protocol: Protocol = Protocol.HTTP2,
+        bytesUp: Long = 100,
+        bytesDown: Long = 1_000,
+        durationMs: Long? = 250,
+        uid: Int? = 20000,
+        error: String? = null,
+        mime: String? = null,
+    ) = CapturedRequest(
+        id = id, timestampMs = id, host = host, path = path, method = method, status = status,
+        requestHeaders = mapOf("Accept" to "text/html"),
+        responseHeaders = mapOf("Content-Type" to "application/x-protobuf"),
+        requestBody = "req-needle", responseBody = body, bytesUp = bytesUp, bytesDown = bytesDown,
+        protocol = protocol, appUid = uid, responseMime = mime, durationMs = durationMs, error = error,
+    )
+
+    @Test
+    fun `every positive token matches its target`() {
+        val c = capture(1)
+        assertTrue(CaptureFilter.parse("host:matrix.example.com").matches(c))
+        assertTrue(CaptureFilter.parse("path:/deep/path").matches(c))
+        assertTrue(CaptureFilter.parse("body:needle-in-haystack").matches(c))
+        assertTrue(CaptureFilter.parse("method:get").matches(c))
+        assertTrue(CaptureFilter.parse("status:2xx").matches(c))
+        assertTrue(CaptureFilter.parse("status:200").matches(c))
+        assertTrue(CaptureFilter.parse("mime:application/x-").matches(c))
+        assertTrue(CaptureFilter.parse("size>1000").matches(c))   // total = 1100
+        assertTrue(CaptureFilter.parse("size<2000").matches(c))
+        assertTrue(CaptureFilter.parse("time>100").matches(c))   // duration 250
+        assertTrue(CaptureFilter.parse("time<1000").matches(c))
+        assertTrue(CaptureFilter.parse("proto:http2").matches(c))
+        assertTrue(CaptureFilter.parse("proto:HTTP2").matches(c))
+        assertTrue(CaptureFilter.parse("uid:20000").matches(c))
+    }
+
+    @Test
+    fun `every negative token rejects its target`() {
+        val c = capture(1)
+        assertFalse(CaptureFilter.parse("host:other").matches(c))
+        assertFalse(CaptureFilter.parse("path:/shallow").matches(c))
+        assertFalse(CaptureFilter.parse("body:missing").matches(c))
+        assertFalse(CaptureFilter.parse("method:post").matches(c))
+        assertFalse(CaptureFilter.parse("status:3xx").matches(c))
+        assertFalse(CaptureFilter.parse("status:404").matches(c))
+        assertFalse(CaptureFilter.parse("mime:text/").matches(c))
+        assertFalse(CaptureFilter.parse("size>5000").matches(c))
+        assertFalse(CaptureFilter.parse("size<50").matches(c))
+        assertFalse(CaptureFilter.parse("time>999").matches(c))
+        assertFalse(CaptureFilter.parse("time<10").matches(c))
+        assertFalse(CaptureFilter.parse("proto:quic").matches(c))
+        assertFalse(CaptureFilter.parse("uid:1").matches(c))
+        assertFalse(CaptureFilter.parse("secure:true").matches(c))
+    }
+
+    @Test
+    fun `secure true matches tls captures`() {
+        val tls = capture(1, protocol = Protocol.TLS)
+        assertTrue(CaptureFilter.parse("secure:true").matches(tls))
+        assertFalse(CaptureFilter.parse("secure:false").matches(tls))
+        assertFalse(CaptureFilter.parse("secure:true").matches(capture(2)))
+        assertTrue(CaptureFilter.parse("secure:false").matches(capture(2)))
+    }
+
+    @Test
+    fun `error true matches transport errors and 5xx`() {
+        assertTrue(CaptureFilter.parse("error:true").matches(capture(1, error = "boom")))
+        assertTrue(CaptureFilter.parse("error:true").matches(capture(2, status = 503)))
+        assertFalse(CaptureFilter.parse("error:true").matches(capture(3, status = 400)))
+        assertFalse(CaptureFilter.parse("error:true").matches(capture(4, status = 200, error = null)))
+        // optional token with non-true value is ignored rather than failing
+        assertTrue(CaptureFilter.parse("error:false").matches(capture(5)))
+    }
+
+    @Test
+    fun `combined query intersects every clause`() {
+        val c = capture(1)
+        assertTrue(CaptureFilter.parse("host:example status:2xx method:get size>500 time>100 proto:http2").matches(c))
+        assertFalse(CaptureFilter.parse("host:example status:5xx").matches(c))
+        assertFalse(CaptureFilter.parse("host:example status:2xx size>99999").matches(c))
+    }
+
+    @Test
+    fun `mime falls back to response headers when mime field is null`() {
+        val c = capture(1, mime = null)
+        assertTrue(CaptureFilter.parse("mime:application/x-protobuf").matches(c))
+        assertFalse(CaptureFilter.parse("mime:text/").matches(c))
     }
 }

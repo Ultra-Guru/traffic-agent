@@ -74,6 +74,7 @@ data class CaptureFilter(
                         token.startsWith("uid:") -> f.appUids += number(raw.substring(4), raw).toInt()
                         token.startsWith("error:") -> when (raw.substring(6).lowercase()) {
                             "true", "yes", "1" -> f.errorOnly = true
+                            "false", "no", "0" -> f.errorOnly = false
                             else -> throw IllegalArgumentException("bad error token: $raw")
                         }
                         else -> f.hostKeyword = raw

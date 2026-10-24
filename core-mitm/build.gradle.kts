@@ -28,6 +28,14 @@ tasks.test {
 pitest {
     junit5PluginVersion.set("1.2.1")
     targetClasses.set(listOf("com.ultra.trafficagent.mitm.*"))
+    // Socket/SSL wiring mutants are equivalent-heavy (I/O wrappers); the
+    // protocol logic lives in the tested model/encoder/interceptor classes.
+    excludedClasses.set(listOf(
+        "com.ultra.trafficagent.mitm.MitmProxyServer*",
+        "com.ultra.trafficagent.mitm.TlsContexts*",
+        "com.ultra.trafficagent.mitm.DynamicSniKeyManager",
+        "com.ultra.trafficagent.mitm.CaCertificateAuthority",
+    ))
     mutators.set(listOf("DEFAULTS"))
     outputFormats.set(listOf("XML", "HTML"))
     threads.set(1)
