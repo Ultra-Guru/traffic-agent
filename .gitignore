@@ -1,12 +1,35 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android / IntelliJ
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-build/
-dist/
 .pytest_cache/
-.mutmut-cache
-mutants/
-.coverage
+.mutmut-cache/
 htmlcov/
 .venv/
-mutation-*.json
+
+# C++ / CMake
+native-engine/build/
+cmake-build-*/
+*.o
+*.so
+*.a
+
+# OS / misc
+.DS_Store
+*.log
