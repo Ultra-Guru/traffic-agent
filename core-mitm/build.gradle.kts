@@ -34,7 +34,8 @@ pitest {
         "com.ultra.trafficagent.mitm.MitmProxyServer*",
         "com.ultra.trafficagent.mitm.TlsContexts*",
         "com.ultra.trafficagent.mitm.DynamicSniKeyManager",
-        "com.ultra.trafficagent.mitm.CaCertificateAuthority",
+        "com.ultra.trafficagent.mitm.CaCertificateAuthority*",
+        "com.ultra.trafficagent.mitm.HttpIo",
     ))
     mutators.set(listOf("DEFAULTS"))
     outputFormats.set(listOf("XML", "HTML"))

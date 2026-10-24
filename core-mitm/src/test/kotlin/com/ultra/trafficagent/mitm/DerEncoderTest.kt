@@ -145,3 +145,65 @@ class CaCertificateAuthorityTest {
         assertFalse(a === c)
     }
 }
+
+class DerWriterStringMethodsTest {
+    @Test
+    fun `utf8, printable, null, times round trip`() {
+        val utf8 = DerWriter().apply { writeUtf8String("中文") }.toBytes()
+        // 0x0C tag, UTF8 payload
+        assertEquals(0x0C, utf8[0].toInt() and 0xFF)
+        assertEquals("中文".toByteArray(Charsets.UTF_8).size + 2, utf8.size)
+
+        val printable = DerWriter().apply { writePrintableString("abc-XYZ") }.toBytes()
+        assertEquals(0x13, printable[0].toInt() and 0xFF)
+        assertEquals("abc-XYZ".length + 2, printable.size)
+
+        val nul = DerWriter().apply { writeNull() }.toBytes()
+        assertEquals(0x05, nul[0].toInt() and 0xFF)
+        assertEquals(0x00, nul[1].toInt() and 0xFF)
+        assertEquals(2, nul.size)
+
+        val t = DerWriter().apply { writeUTCTime(java.util.Date(0)) }.toBytes()
+        assertEquals(0x17, t[0].toInt() and 0xFF)
+        // YYMMDDHHMMSSZ = 13 bytes payload
+        assertEquals(15, t.size)
+
+        val gt = DerWriter().apply { writeGeneralizedTime(java.util.Date(0)) }.toBytes()
+        assertEquals(0x18, gt[0].toInt() and 0xFF)
+        assertEquals(17, gt.size) // YYYYMMDDHHMMSSZ
+    }
+
+    @Test
+    fun `oid accepts single component and rejects garbage`() {
+        val two = DerWriter().apply { writeObjectId("2.5") }.toBytes()
+        assertEquals(0x06, two[0].toInt() and 0xFF)
+        assertEquals(1, two[1].toInt() and 0xFF) // one content byte
+        // 2.5 encodes as 0x55 (2*40+5)
+        assertEquals(0x55, two[2].toInt() and 0xFF)
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            DerWriter().apply { writeObjectId("") }
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            DerWriter().apply { writeObjectId("2") }
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            DerWriter().apply { writeObjectId("3.1") }
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            DerWriter().apply { writeObjectId("1.2.x") }
+        }
+    }
+
+    @Test
+    fun `context specific tag limits are enforced`() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            DerWriter().apply { writeContextSpecific(31, byteArrayOf()) }
+        }
+        val ok = DerWriter().apply { writeContextSpecific(3, byteArrayOf(1)) }.toBytes()
+        // constructed context tag 3 = 0xA3
+        assertEquals(0xA3, ok[0].toInt() and 0xFF)
+        // primitive variant
+        val prim = DerWriter().apply { writeContextSpecific(2, byteArrayOf(7), constructed = false) }.toBytes()
+        assertEquals(0x82, prim[0].toInt() and 0xFF)
+    }
+}

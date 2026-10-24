@@ -191,3 +191,132 @@ class MitmRewriteInterceptorTest {
         assertNull(ctx.responseBody)
     }
 }
+
+class MitmRewriteWriteBackTest {
+
+    @Test
+    fun `redirect action rewrites host and path on request`() {
+        val registry = com.ultra.trafficagent.transform.RuleRegistry()
+        registry.add(
+            com.ultra.trafficagent.transform.RewriteRule(
+                id = "redir", name = "redirect",
+                match = com.ultra.trafficagent.transform.RuleMatch(hostRegex = "h\\.io"),
+                actions = listOf(
+                    com.ultra.trafficagent.transform.RuleAction.Redirect("other.io", "/moved"),
+                ),
+            ),
+        )
+        val interceptor = MitmRewriteInterceptor(registry)
+        val ctx = MutableProxyExchange(
+            scheme = "http", host = "h.io", port = 80, method = "GET", path = "/original",
+        )
+        interceptor.onRequest(ctx)
+        assertEquals("other.io", ctx.host)
+        assertEquals("/moved", ctx.path)
+    }
+
+    @Test
+    fun `replace path action rewrites only the path`() {
+        val registry = com.ultra.trafficagent.transform.RuleRegistry()
+        registry.add(
+            com.ultra.trafficagent.transform.RewriteRule(
+                id = "p", name = "path",
+                match = com.ultra.trafficagent.transform.RuleMatch(pathRegex = "/v1/"),
+                actions = listOf(
+                    com.ultra.trafficagent.transform.RuleAction.ReplacePath("^/v1/", "/v2/"),
+                ),
+            ),
+        )
+        val interceptor = MitmRewriteInterceptor(registry)
+        val ctx = MutableProxyExchange(
+            scheme = "http", host = "h.io", port = 80, method = "GET", path = "/v1/users",
+        )
+        interceptor.onRequest(ctx)
+        assertEquals("/v2/users", ctx.path)
+        assertEquals("h.io", ctx.host)
+    }
+
+    @Test
+    fun `set status action rewrites the response status`() {
+        val registry = com.ultra.trafficagent.transform.RuleRegistry()
+        registry.add(
+            com.ultra.trafficagent.transform.RewriteRule(
+                id = "s", name = "status",
+                match = com.ultra.trafficagent.transform.RuleMatch(hostRegex = "h\\.io"),
+                actions = listOf(
+                    com.ultra.trafficagent.transform.RuleAction.SetStatus(418),
+                ),
+            ),
+        )
+        val interceptor = MitmRewriteInterceptor(registry)
+        val ctx = MutableProxyExchange(
+            scheme = "http", host = "h.io", port = 80, method = "GET", path = "/",
+        )
+        ctx.status = 200
+        ctx.responseHeaders.add("content-type", "text/plain")
+        ctx.responseBody = "x".toByteArray()
+        interceptor.onResponse(ctx)
+        assertEquals(418, ctx.status)
+        assertEquals("x", String(ctx.responseBody!!))
+    }
+
+    @Test
+    fun `response delay actually sleeps`() {
+        val registry = com.ultra.trafficagent.transform.RuleRegistry()
+        registry.add(
+            com.ultra.trafficagent.transform.RewriteRule(
+                id = "d", name = "delay",
+                match = com.ultra.trafficagent.transform.RuleMatch(hostRegex = "h\\.io"),
+                actions = listOf(
+                    com.ultra.trafficagent.transform.RuleAction.DelayMs(90),
+                ),
+            ),
+        )
+        val interceptor = MitmRewriteInterceptor(registry)
+        val ctx = MutableProxyExchange(
+            scheme = "http", host = "h.io", port = 80, method = "GET", path = "/",
+        )
+        ctx.status = 200
+        val t0 = System.nanoTime()
+        interceptor.onResponse(ctx)
+        assertTrue((System.nanoTime() - t0) / 1_000_000 >= 80, "response delay must sleep")
+    }
+}
+
+class MutableHeadersExtraTest {
+
+    @Test
+    fun `add rejects empty names`() {
+        val h = MutableHeaders()
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            h.add("", "v")
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+            h.set("", "v")
+        }
+    }
+
+    @Test
+    fun `set appends when the name is absent`() {
+        val h = MutableHeaders(listOf("a" to "1"))
+        h.set("b", "2")
+        assertEquals(2, h.toList().size)
+        assertEquals("2", h.get("b"))
+    }
+
+    @Test
+    fun `lowercased collapses duplicates keeping the last value`() {
+        val h = MutableHeaders(listOf("A" to "1", "a" to "2", "B" to "3"))
+        assertEquals(mapOf("a" to "2", "b" to "3"), h.lowercased())
+    }
+
+    @Test
+    fun `empty and clear`() {
+        val h = MutableHeaders(listOf("a" to "1"))
+        assertFalse(h.isEmpty())
+        h.clear()
+        assertTrue(h.isEmpty())
+        assertEquals(0, h.toList().size)
+        assertEquals(0, h.lowercased().size)
+    }
+}
