@@ -19,6 +19,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -39,9 +43,7 @@ fun SettingsScreen(
     onDynamicColorChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedMode by androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf(CaptureMode.VPN)
-    }
+    var selectedMode by remember { mutableStateOf(CaptureMode.VPN) }
 
     Scaffold(
         modifier = modifier,
