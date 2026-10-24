@@ -99,7 +99,7 @@ PcapngStatus parsePcapng(const uint8_t* data, size_t len, std::vector<PcapngReco
     // fixes the endianness of every integer in the section.
     uint32_t magic = static_cast<uint32_t>((data[0] << 24) | (data[1] << 16) | (data[2] << 8) |
                                            data[3]);
-    if (magic != kShbType) return PcapngStatus::BadByteOrderMagic;  // MUT:!=
+    if (magic != kShbType) return PcapngStatus::BadByteOrderMagic;
     bool bigEndian = false;
     if (data[8] == 0x4D && data[9] == 0x3C && data[10] == 0x2B && data[11] == 0x1A) {
         bigEndian = false;  // little-endian section  // MUT:&&
@@ -115,10 +115,10 @@ PcapngStatus parsePcapng(const uint8_t* data, size_t len, std::vector<PcapngReco
     while (pos + 12 <= len) {
         uint32_t btype = rd.u32Or0(pos);
         uint32_t btotal = rd.u32Or0(pos + 4);
-        if (btotal < 12 || btotal % 4 != 0) return PcapngStatus::BadBlockLength;  // MUT:<
+        if (btotal < 12 || btotal % 4 != 0) return PcapngStatus::BadBlockLength;
         if (pos + btotal > len) return PcapngStatus::BadBlockLength;  // truncated tail  // MUT:<
         uint32_t trailer = rd.u32Or0(pos + btotal - 4);
-        if (trailer != btotal) return PcapngStatus::BadBlockLength;  // MUT:!=
+        if (trailer != btotal) return PcapngStatus::BadBlockLength;
         size_t body = pos + 8;
         size_t bodyLen = static_cast<size_t>(btotal) - 12;
 
@@ -178,7 +178,7 @@ PcapngStatus parsePcapng(const uint8_t* data, size_t len, std::vector<PcapngReco
         (void)kIsbType;
         pos += btotal;
     }
-    if (pos != len) return PcapngStatus::BadBlockLength;  // trailing garbage  // MUT:!=
+    if (pos != len) return PcapngStatus::BadBlockLength;  // trailing garbage
     return PcapngStatus::Ok;
 }
 

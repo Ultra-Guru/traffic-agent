@@ -38,7 +38,7 @@ bool assembleHandshake(const uint8_t* data, size_t len, uint8_t wantType,
     uint32_t wanted = 0;        // 0 == not started, else message body length
     size_t pos = 0;
     while (pos + 5 <= len) {
-        if (data[pos] != 0x16) return false;  // only handshake records  // MUT:!=
+        if (data[pos] != 0x16) return false;  // only handshake records
         uint16_t ver = static_cast<uint16_t>((data[pos + 1] << 8) | data[pos + 2]);
         uint16_t rlen = static_cast<uint16_t>((data[pos + 3] << 8) | data[pos + 4]);
         if (recordVersion != nullptr) *recordVersion = ver;
@@ -47,7 +47,7 @@ bool assembleHandshake(const uint8_t* data, size_t len, uint8_t wantType,
         const uint8_t* hs = data + payloadStart;
         size_t hsEnd = payloadStart + rlen;
         if (wanted == 0) {
-            if (hsEnd < payloadStart + 4 || hs[0] != wantType) {  // MUT:!=
+            if (hsEnd < payloadStart + 4 || hs[0] != wantType) {
                 pos = hsEnd;  // some other handshake message, keep scanning
                 continue;
             }
@@ -119,7 +119,7 @@ bool decodeExtensions(const uint8_t* data, size_t len, ClientHelloInfo* out) {
             if (dlen < 1) return false;
             uint8_t listLen = d[0];
             size_t q = 1;
-            if (q + listLen > dlen) return false;  // MUT:>
+            if (q + listLen > dlen) return false;
             for (uint8_t i = 0; i + 1 < listLen; i += 2) {
                 out->supportedVersions.push_back(
                     static_cast<uint16_t>((d[q + i] << 8) | d[q + i + 1]));
@@ -128,7 +128,7 @@ bool decodeExtensions(const uint8_t* data, size_t len, ClientHelloInfo* out) {
             uint16_t listLen = 0;
             if (!readU16(d, dlen, 0, &listLen)) return false;
             size_t q = 2;
-            if (q + listLen > dlen) return false;  // MUT:>
+            if (q + listLen > dlen) return false;
             for (uint16_t i = 0; i + 1 < listLen; i += 2) {
                 out->supportedGroups.push_back(
                     static_cast<uint16_t>((d[q + i] << 8) | d[q + i + 1]));
@@ -137,7 +137,7 @@ bool decodeExtensions(const uint8_t* data, size_t len, ClientHelloInfo* out) {
             uint16_t listLen = 0;
             if (!readU16(d, dlen, 0, &listLen)) return false;
             size_t q = 2;
-            if (q + listLen > dlen) return false;  // MUT:>
+            if (q + listLen > dlen) return false;
             for (uint16_t i = 0; i + 1 < listLen; i += 2) {
                 out->signatureAlgorithms.push_back(
                     static_cast<uint16_t>((d[q + i] << 8) | d[q + i + 1]));
@@ -146,7 +146,7 @@ bool decodeExtensions(const uint8_t* data, size_t len, ClientHelloInfo* out) {
             if (dlen < 1) return false;
             uint8_t listLen = d[0];
             size_t q = 1;
-            if (q + listLen > dlen) return false;  // MUT:>
+            if (q + listLen > dlen) return false;
             for (uint8_t i = 0; i < listLen; ++i) {
                 out->ecPointFormats.push_back(d[q + i]);
             }
@@ -187,8 +187,8 @@ void buildJa3(ClientHelloInfo* out) {
 
 TlsStatus parseTlsClientHello(const uint8_t* data, size_t len, ClientHelloInfo* out) {
     if (data == nullptr || out == nullptr) return TlsStatus::TooShort;
-    if (len < 9) return TlsStatus::TooShort;  // MUT:<=
-    if (data[0] != 0x16) return TlsStatus::NotHandshake;  // MUT:!=
+    if (len < 9) return TlsStatus::TooShort;
+    if (data[0] != 0x16) return TlsStatus::NotHandshake;
 
     std::vector<uint8_t> body;
     uint16_t recordVersion = 0;
@@ -202,14 +202,14 @@ TlsStatus parseTlsClientHello(const uint8_t* data, size_t len, ClientHelloInfo* 
     if (p + 2 > blen) return TlsStatus::Malformed;
     out->clientVersion = static_cast<uint16_t>((body[p] << 8) | body[p + 1]);
     p += 2;
-    if (p + 32 > blen) return TlsStatus::Malformed;  // MUT:>=
+    if (p + 32 > blen) return TlsStatus::Malformed;
     out->randomHex.clear();
     appendHex(&out->randomHex, body.data() + p, 32);
     p += 32;
     if (p >= blen) return TlsStatus::Malformed;
     uint8_t sidLen = body[p];
     ++p;
-    if (p + sidLen > blen) return TlsStatus::Malformed;  // MUT:>=
+    if (p + sidLen > blen) return TlsStatus::Malformed;
     out->sessionIdHex.clear();
     appendHex(&out->sessionIdHex, body.data() + p, sidLen);
     p += sidLen;
@@ -224,7 +224,7 @@ TlsStatus parseTlsClientHello(const uint8_t* data, size_t len, ClientHelloInfo* 
     if (p >= blen) return TlsStatus::Malformed;
     uint8_t compLen = body[p];
     ++p;
-    if (p + compLen > blen) return TlsStatus::Malformed;  // MUT:>=
+    if (p + compLen > blen) return TlsStatus::Malformed;
     out->compression.assign(body.data() + p, body.data() + p + compLen);
     p += compLen;
     if (p + 2 > blen) return TlsStatus::Malformed;  // no extensions section
@@ -241,7 +241,7 @@ TlsStatus parseTlsClientHello(const uint8_t* data, size_t len, ClientHelloInfo* 
 TlsStatus parseTlsServerHello(const uint8_t* data, size_t len, ServerHelloInfo* out) {
     if (data == nullptr || out == nullptr) return TlsStatus::TooShort;
     if (len < 9) return TlsStatus::TooShort;
-    if (data[0] != 0x16) return TlsStatus::NotHandshake;  // MUT:!=
+    if (data[0] != 0x16) return TlsStatus::NotHandshake;
 
     std::vector<uint8_t> body;
     uint16_t recordVersion = 0;
@@ -258,7 +258,7 @@ TlsStatus parseTlsServerHello(const uint8_t* data, size_t len, ServerHelloInfo* 
     if (p >= blen) return TlsStatus::Malformed;
     uint8_t sidLen = body[p];
     ++p;
-    if (p + sidLen > blen) return TlsStatus::Malformed;  // MUT:>=
+    if (p + sidLen > blen) return TlsStatus::Malformed;
     p += sidLen;
     if (p + 3 > blen) return TlsStatus::Malformed;  // cipher(2) + compression(1)
     out->cipher = static_cast<uint16_t>((body[p] << 8) | body[p + 1]);

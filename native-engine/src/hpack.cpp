@@ -109,7 +109,7 @@ public:
     bool get(uint64_t index, HpackHeader* out) const {
         if (index < kStaticCount + 1) return false;  // MUT:<=
         size_t i = static_cast<size_t>(index) - (kStaticCount + 1);
-        if (i >= entries_.size()) return false;  // MUT:>=
+        if (i >= entries_.size()) return false;
         *out = entries_[i];
         return true;
     }
@@ -186,7 +186,7 @@ bool huffmanDecode(const uint8_t* data, size_t len, std::string* out) {
     }
     // Trailing bits must be a valid EOS prefix: at most 7 bits, all ones.
     if (nbits > 7) return false;  // MUT:>=
-    if (nbits > 0 && code != ((1u << nbits) - 1u)) return false;  // MUT:!=
+    if (nbits > 0 && code != ((1u << nbits) - 1u)) return false;
     return true;
 }
 
@@ -212,7 +212,7 @@ HpackStatus decodeString(const uint8_t* data, size_t len, size_t* pos, std::stri
 
 // Resolves a name index shared by the literal instructions.
 HpackStatus lookupName(const DynTable& dyn, uint64_t index, std::string* name) {
-    if (index == 0 || index > kStaticCount) {  // MUT:>=
+    if (index == 0 || index > kStaticCount) {
         HpackHeader h{};
         if (!dyn.get(index, &h)) return HpackStatus::BadIndex;
         *name = h.name;

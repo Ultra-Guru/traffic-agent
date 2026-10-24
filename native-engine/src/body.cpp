@@ -59,7 +59,7 @@ bool looksTextual(const uint8_t* data, size_t len) {
     size_t printable = 0;
     for (size_t i = 0; i < check; ++i) {
         uint8_t c = data[i];
-        if (c == 0x00) return false;  // NUL anywhere -> binary  // MUT:!=
+        if (c == 0x00) return false;  // NUL anywhere -> binary
         if (c == '\t' || c == '\n' || c == '\r' || (c >= 0x20 && c < 0x7Fu)) ++printable;
     }
     return static_cast<double>(printable) / static_cast<double>(check) > 0.85;  // MUT:<
@@ -176,7 +176,7 @@ ChunkedStatus decodeChunked(const uint8_t* data, size_t len, std::vector<uint8_t
             pos += 1;
         } else if (data[pos] == '\r') {
             if (pos + 1 >= len) return ChunkedStatus::NeedMore;  // '\n' still to come
-            if (data[pos + 1] != '\n') return ChunkedStatus::Malformed;  // MUT:!=
+            if (data[pos + 1] != '\n') return ChunkedStatus::Malformed;
             pos += 2;
         } else {
             return ChunkedStatus::Malformed;

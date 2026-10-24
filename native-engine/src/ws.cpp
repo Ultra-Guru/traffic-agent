@@ -38,9 +38,9 @@ WsStatus decodeWsFrame(const uint8_t* data, size_t len, WsFrameInfo* out,
     }
     unmaskedPayload->clear();
     WsStatus s = parseWsFrame(data, len, out);
-    if (s != WsStatus::Ok) return s;  // MUT:!=
+    if (s != WsStatus::Ok) return s;
     if (out->masked && out->headerLength < 6) return WsStatus::BadMask;  // mask key missing
-    if (out->headerLength > len) return WsStatus::TooShort;  // mask key truncated  // MUT:>=
+    if (out->headerLength > len) return WsStatus::TooShort;  // mask key truncated
     uint64_t need = out->headerLength + out->payloadLength;
     if (need > len) return WsStatus::TooShort;  // payload truncated  // MUT:>=
     const uint8_t* payload = data + out->headerLength;

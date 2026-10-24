@@ -92,7 +92,7 @@ struct Md5State {
         total += len;
         while (len > 0) {
             size_t take = 64 - buffered;
-            if (take > len) take = len;  // MUT:>=
+            if (take > len) take = len;
             std::memcpy(buffer + buffered, data, take);
             buffered += take;
             data += take;
@@ -107,7 +107,7 @@ struct Md5State {
     void finish(uint8_t out[16]) {
         uint64_t bits = total * 8;
         buffer[buffered++] = 0x80;
-        if (buffered > 56) {  // MUT:>=
+        if (buffered > 56) {
             while (buffered < 64) buffer[buffered++] = 0;
             processBlock(buffer);
             buffered = 0;

@@ -159,7 +159,7 @@ Ipv4Status Engine::feedPacket(const uint8_t* ipPkt, size_t len, uint64_t timesta
         size_t payloadLen = (transportLen > 8) ? transportLen - 8 : 0;
         key.srcPort = udp.srcPort;
         key.dstPort = udp.dstPort;
-        if (udp.dstPort == 443 && payloadLen > 0) {  // MUT:!=
+        if (udp.dstPort == 443 && payloadLen > 0) {
             QuicInfo qi{};
             if (detectQuic(payload, payloadLen, &qi) == QuicStatus::Ok) {
                 EngineEvent ev;
@@ -249,7 +249,7 @@ void Engine::classify(const FlowKey& flow, const uint8_t* data, size_t len, uint
         feedHttp(c, false, data, len, ts);
         return;
     }
-    if (n < sizeof(c.probe) && couldStillMatch(p, n)) return;  // wait for more bytes  // MUT:>=
+    if (n < sizeof(c.probe) && couldStillMatch(p, n)) return;  // wait for more bytes
     c.kind = Conversation::Kind::Skip;
 }
 
@@ -393,7 +393,7 @@ void Engine::emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t*
                               uint64_t ts) {
     std::vector<HpackHeader> headers;
     size_t consumed = 0;
-    if (decodeHpack(block, len, &headers, &consumed) != HpackStatus::Ok) return;  // MUT:!=
+    if (decodeHpack(block, len, &headers, &consumed) != HpackStatus::Ok) return;
     std::string text;
     for (const HpackHeader& h : headers) {
         if (text.size() >= 256) break;
@@ -444,7 +444,7 @@ void Engine::feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_
             d.buf.clear();
             return;
         }
-        if (pos + 9 + flen > d.buf.size()) break;  // incomplete frame  // MUT:>
+        if (pos + 9 + flen > d.buf.size()) break;  // incomplete frame
         const uint8_t* payload = b + 9;
         size_t payloadLen = flen;
 
@@ -502,7 +502,7 @@ void Engine::handleDns(const FlowKey& flow, uint32_t srcPort, uint32_t dstPort,
     (void)srcPort;
     (void)dstPort;
     DnsMessage dm{};
-    if (parseDnsResponse(payload, len, &dm) != DnsStatus::Ok) return;  // MUT:!=
+    if (parseDnsResponse(payload, len, &dm) != DnsStatus::Ok) return;
     if (dm.questions.empty()) return;
     const std::string& qname = dm.questions[0].name;
     bool isResponse = (dm.flags & 0x8000u) != 0;

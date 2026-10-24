@@ -62,7 +62,7 @@ DnsStatus readName(const uint8_t* data, size_t len, size_t* pos, std::string* ou
             continue;
         }
         if (l > 63) return DnsStatus::LabelTooLong;  // MUT:>=
-        if (p + 1 + l > len) return DnsStatus::MalformedName;  // MUT:>=
+        if (p + 1 + l > len) return DnsStatus::MalformedName;
         total += l;
         if (total > 255) return DnsStatus::LabelTooLong;  // MUT:>=
         if (!name.empty()) name.push_back('.');
@@ -131,7 +131,7 @@ DnsStatus renderRdata(const uint8_t* data, size_t len, size_t pos, uint16_t type
     const uint8_t* r = data + pos;
     switch (type) {
         case 1:  // A
-            if (rdlen != 4) return DnsStatus::MalformedRdata;  // MUT:!=
+            if (rdlen != 4) return DnsStatus::MalformedRdata;
             *out = ipv4Text(r);
             return DnsStatus::Ok;
         case 28: {  // AAAA
@@ -160,7 +160,7 @@ DnsStatus renderRdata(const uint8_t* data, size_t len, size_t pos, uint16_t type
             size_t endPos = pos + rdlen;
             while (p < endPos) {
                 uint8_t clen = data[p];
-                if (p + 1 + clen > endPos) return DnsStatus::MalformedRdata;  // MUT:>
+                if (p + 1 + clen > endPos) return DnsStatus::MalformedRdata;
                 s.append(reinterpret_cast<const char*>(data + p + 1), clen);
                 p += 1 + clen;
             }
@@ -209,7 +209,7 @@ DnsStatus parseDnsQuestion(const uint8_t* data, size_t len, DnsQuestion* out) {
 
 DnsStatus parseDnsResponse(const uint8_t* data, size_t len, DnsMessage* out) {
     if (data == nullptr || out == nullptr) return DnsStatus::TooShort;
-    if (len < 12) return DnsStatus::TooShort;  // MUT:<=
+    if (len < 12) return DnsStatus::TooShort;
     out->flags = static_cast<uint16_t>((data[2] << 8) | data[3]);
     out->rcode = static_cast<uint16_t>(out->flags & 0x0Fu);
     uint16_t qdcount = static_cast<uint16_t>((data[4] << 8) | data[5]);
@@ -231,7 +231,7 @@ DnsStatus parseDnsResponse(const uint8_t* data, size_t len, DnsMessage* out) {
         DnsAnswer a;
         DnsStatus s = readName(data, len, &pos, &a.name);
         if (s != DnsStatus::Ok) return s;
-        if (pos + 10 > len) return DnsStatus::Malformed;  // MUT:>=
+        if (pos + 10 > len) return DnsStatus::Malformed;
         a.type = static_cast<uint16_t>((data[pos] << 8) | data[pos + 1]);
         a.cls = static_cast<uint16_t>((data[pos + 2] << 8) | data[pos + 3]);
         a.ttl = rdU32(data + pos + 4);

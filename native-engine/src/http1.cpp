@@ -143,7 +143,7 @@ Http1Status parseHttpResponse(const uint8_t* data, size_t len, Http1Response* ou
     // status line: VERSION SP CODE SP REASON
     size_t sp1 = 0;
     while (sp1 < line1End && data[sp1] != ' ') ++sp1;
-    if (sp1 == 0 || sp1 + 1 >= line1End) return Http1Status::MalformedRequestLine;  // MUT:>
+    if (sp1 == 0 || sp1 + 1 >= line1End) return Http1Status::MalformedRequestLine;
     size_t sp2 = sp1 + 1;
     while (sp2 < line1End && data[sp2] != ' ') ++sp2;
     if (sp2 + 1 > line1End) return Http1Status::MalformedRequestLine;

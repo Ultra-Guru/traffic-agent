@@ -53,6 +53,7 @@ TA_TEST(hpack_static_table_shape) {
     TA_CHECK_ST(hpackStaticName(16), "accept-encoding");
     TA_CHECK_ST(hpackStaticName(28), "content-length");
     TA_CHECK_ST(hpackStaticName(61), "www-authenticate");
+    TA_CHECK_ST(hpackStaticValue(61), "");  // RFC gives no example value
     TA_CHECK(hpackStaticName(0) == nullptr);
     TA_CHECK(hpackStaticName(62) == nullptr);
 }

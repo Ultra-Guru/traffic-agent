@@ -24,7 +24,7 @@ size_t findLineStartDelimiter(const uint8_t* data, size_t len, const std::string
                               size_t from) {
     if (delim.empty()) return len;
     for (size_t i = from; i + delim.size() <= len; ++i) {
-        if (i > 0 && data[i - 1] != '\n') continue;  // must start a line  // MUT:!=
+        if (i > 0 && data[i - 1] != '\n') continue;  // must start a line
         bool match = true;
         for (size_t j = 0; j < delim.size(); ++j) {
             if (data[i + j] != static_cast<uint8_t>(delim[j])) {
@@ -156,7 +156,7 @@ MultipartStatus parseMultipart(const uint8_t* data, size_t len,
 
         // ---- part body: runs until the next line-start delimiter ----
         size_t next = findLineStartDelimiter(data, len, delim, after);
-        if (next >= len) return MultipartStatus::Malformed;  // unterminated part  // MUT:>
+        if (next >= len) return MultipartStatus::Malformed;  // unterminated part
         size_t bodyEnd = next;
         if (bodyEnd > after && data[bodyEnd - 1] == '\n') --bodyEnd;
         if (bodyEnd > after && data[bodyEnd - 1] == '\r') --bodyEnd;  // MUT:&&

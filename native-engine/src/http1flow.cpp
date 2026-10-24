@@ -47,7 +47,7 @@ void Http1FlowParser::feed(const uint8_t* data, size_t len, uint64_t timestampMs
     lastTs_ = timestampMs;
     buf_.insert(buf_.end(), data, data + len);
     parseBuffer();
-    if (consumed_ > 0) {  // compact the processed prefix  // MUT:<
+    if (consumed_ > 0) {  // compact the processed prefix
         buf_.erase(buf_.begin(), buf_.begin() + static_cast<std::ptrdiff_t>(consumed_));
         consumed_ = 0;
     }
@@ -57,7 +57,7 @@ void Http1FlowParser::appendBody(const uint8_t* data, size_t len) {
     size_t room = (current_.body.size() < kMaxBodyBytes) ? kMaxBodyBytes - current_.body.size() : 0;
     size_t take = (len < room) ? len : room;
     current_.body.insert(current_.body.end(), data, data + take);
-    if (len > room) current_.truncated = true;  // MUT:>=
+    if (len > room) current_.truncated = true;
 }
 
 void Http1FlowParser::resetMessage() {
@@ -97,7 +97,7 @@ bool Http1FlowParser::tryStartMessage() {
         s = parseHttpResponse(buf_.data() + consumed_, headerEnd - consumed_, &current_.response);
         current_.isRequest = false;
     }
-    if (s != Http1Status::Ok) {  // garbage head: stop parsing this flow  // MUT:!=
+    if (s != Http1Status::Ok) {  // garbage head: stop parsing this flow
         stopped_ = true;
         return false;
     }
@@ -205,7 +205,7 @@ void Http1FlowParser::parseBuffer() {
                     state_ = State::ChunkHeader;
                 } else if (buf_[consumed_] == '\r') {
                     if (avail < 2) return;  // wait for the LF
-                    if (buf_[consumed_ + 1] != '\n') {  // MUT:!=
+                    if (buf_[consumed_ + 1] != '\n') {
                         stopped_ = true;
                         return;
                     }
