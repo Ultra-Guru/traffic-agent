@@ -136,4 +136,136 @@ inline Bytes clientHello(const std::string& sni) {
     return rec;
 }
 
+// Rich ClientHello with a fixed, deterministic fingerprint shape:
+// ciphers 1301,1302,c02b,c02f,00ff; extensions SNI(0), ec_point_formats(11),
+// supported_groups(10), signature_algorithms(13), ALPN(16), supported_versions(43).
+inline Bytes clientHelloFull(const std::string& sni) {
+    Bytes body;
+    pushU16(body, 0x0303);                       // client_version TLS 1.2
+    for (int i = 0; i < 32; ++i) body.push_back(0xCD);  // random
+    body.push_back(4);                            // session id length
+    const uint8_t sid[4] = {0x9A, 0xBC, 0xDE, 0xF0};
+    body.insert(body.end(), sid, sid + 4);
+    const uint16_t ciphers[] = {0x1301, 0x1302, 0xC02B, 0xC02F, 0x00FF};
+    pushU16(body, static_cast<uint16_t>(sizeof(ciphers)));
+    for (uint16_t c : ciphers) pushU16(body, c);
+    body.push_back(1);                            // compression methods length
+    body.push_back(0);                            // null
+
+    Bytes exts;
+    // server_name
+    Bytes sniExt;
+    pushU16(sniExt, static_cast<uint16_t>(3 + sni.size()));
+    sniExt.push_back(0);
+    pushU16(sniExt, static_cast<uint16_t>(sni.size()));
+    sniExt.insert(sniExt.end(), sni.begin(), sni.end());
+    pushU16(exts, 0x0000);
+    pushU16(exts, static_cast<uint16_t>(sniExt.size()));
+    exts.insert(exts.end(), sniExt.begin(), sniExt.end());
+    // ec_point_formats: [uncompressed]
+    pushU16(exts, 0x000B);
+    pushU16(exts, 2);
+    exts.push_back(1);
+    exts.push_back(0);
+    // supported_groups: x25519(29), secp256r1(23)
+    pushU16(exts, 0x000A);
+    pushU16(exts, 6);
+    pushU16(exts, 4);
+    pushU16(exts, 29);
+    pushU16(exts, 23);
+    // signature_algorithms: ecdsa_secp256r1_sha256(0x0403), rsa_pss_rsae_sha256(0x0804)
+    pushU16(exts, 0x000D);
+    pushU16(exts, 6);
+    pushU16(exts, 4);
+    pushU16(exts, 0x0403);
+    pushU16(exts, 0x0804);
+    // ALPN: h2, http/1.1
+    Bytes alpn;
+    pushU16(alpn, static_cast<uint16_t>(3 + 9));  // list: (1+2) + (1+8)
+    alpn.push_back(2);
+    const uint8_t h2[2] = {'h', '2'};
+    alpn.insert(alpn.end(), h2, h2 + 2);
+    alpn.push_back(8);
+    const uint8_t http11[8] = {'h', 't', 't', 'p', '/', '1', '.', '1'};
+    alpn.insert(alpn.end(), http11, http11 + 8);
+    pushU16(exts, 0x0010);
+    pushU16(exts, static_cast<uint16_t>(alpn.size()));
+    exts.insert(exts.end(), alpn.begin(), alpn.end());
+    // supported_versions: TLS 1.3, TLS 1.2
+    pushU16(exts, 0x002B);
+    pushU16(exts, 5);
+    exts.push_back(4);
+    pushU16(exts, 0x0304);
+    pushU16(exts, 0x0303);
+
+    pushU16(body, static_cast<uint16_t>(exts.size()));
+    body.insert(body.end(), exts.begin(), exts.end());
+
+    Bytes ch;
+    ch.push_back(0x01);
+    ch.push_back(static_cast<uint8_t>((body.size() >> 16) & 0xFF));
+    ch.push_back(static_cast<uint8_t>((body.size() >> 8) & 0xFF));
+    ch.push_back(static_cast<uint8_t>(body.size() & 0xFF));
+    ch.insert(ch.end(), body.begin(), body.end());
+
+    Bytes rec;
+    rec.push_back(0x16);
+    rec.push_back(0x03);
+    rec.push_back(0x01);
+    pushU16(rec, static_cast<uint16_t>(ch.size()));
+    rec.insert(rec.end(), ch.begin(), ch.end());
+    return rec;
+}
+
+// TLS ServerHello (record + handshake) with cipher and optional ALPN.
+inline Bytes serverHello(uint16_t cipher, const std::string& alpn) {
+    Bytes body;
+    pushU16(body, 0x0303);              // server_version
+    for (int i = 0; i < 32; ++i) body.push_back(0x77);
+    body.push_back(0);                  // session id
+    pushU16(body, cipher);
+    body.push_back(0);                  // compression
+    if (!alpn.empty()) {
+        Bytes a;
+        pushU16(a, static_cast<uint16_t>(1 + alpn.size()));
+        a.push_back(static_cast<uint8_t>(alpn.size()));
+        a.insert(a.end(), alpn.begin(), alpn.end());
+        pushU16(body, static_cast<uint16_t>(4 + a.size()));  // extensions length
+        pushU16(body, 0x0010);
+        pushU16(body, static_cast<uint16_t>(a.size()));
+        body.insert(body.end(), a.begin(), a.end());
+    } else {
+        pushU16(body, 0);
+    }
+    Bytes hs;
+    hs.push_back(0x02);
+    hs.push_back(static_cast<uint8_t>((body.size() >> 16) & 0xFF));
+    hs.push_back(static_cast<uint8_t>((body.size() >> 8) & 0xFF));
+    hs.push_back(static_cast<uint8_t>(body.size() & 0xFF));
+    hs.insert(hs.end(), body.begin(), body.end());
+    Bytes rec;
+    rec.push_back(0x16);
+    rec.push_back(0x03);
+    rec.push_back(0x03);
+    pushU16(rec, static_cast<uint16_t>(hs.size()));
+    rec.insert(rec.end(), hs.begin(), hs.end());
+    return rec;
+}
+
+// HTTP/2 frame: 9-byte header + payload.
+inline Bytes h2Frame(uint8_t type, uint8_t flags, uint32_t streamId, const Bytes& payload) {
+    Bytes f;
+    f.push_back(static_cast<uint8_t>((payload.size() >> 16) & 0xFF));
+    f.push_back(static_cast<uint8_t>((payload.size() >> 8) & 0xFF));
+    f.push_back(static_cast<uint8_t>(payload.size() & 0xFF));
+    f.push_back(type);
+    f.push_back(flags);
+    f.push_back(static_cast<uint8_t>((streamId >> 24) & 0x7F));
+    f.push_back(static_cast<uint8_t>((streamId >> 16) & 0xFF));
+    f.push_back(static_cast<uint8_t>((streamId >> 8) & 0xFF));
+    f.push_back(static_cast<uint8_t>(streamId & 0xFF));
+    f.insert(f.end(), payload.begin(), payload.end());
+    return f;
+}
+
 }  // namespace tb

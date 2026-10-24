@@ -15,6 +15,7 @@ tasks.register("allUnitTests") {
         ":core-transform:test",
         ":core-agent:test",
         ":core-exports:test",
+        ":core-mitm:test",
     )
 }
 
@@ -27,5 +28,6 @@ tasks.register("allPitest") {
         ":core-transform:pitest",
         ":core-agent:pitest",
         ":core-exports:pitest",
+        ":core-mitm:pitest",
     )
 }

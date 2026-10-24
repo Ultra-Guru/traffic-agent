@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -112,6 +113,8 @@ private fun AddRuleDialog(onDismiss: () -> Unit, onConfirm: (RewriteRule) -> Uni
     var hostRegex by remember { mutableStateOf("") }
     var headerName by remember { mutableStateOf("") }
     var headerValue by remember { mutableStateOf("") }
+    var actionType by remember { mutableStateOf(0) } // 0 header, 1 mock, 2 block
+    var mockBody by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -130,24 +133,53 @@ private fun AddRuleDialog(onDismiss: () -> Unit, onConfirm: (RewriteRule) -> Uni
                     label = { Text("Host regex") },
                     singleLine = true,
                 )
-                OutlinedTextField(
-                    value = headerName,
-                    onValueChange = { headerName = it },
-                    label = { Text("Set header (name)") },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = headerValue,
-                    onValueChange = { headerValue = it },
-                    label = { Text("Header value") },
-                    singleLine = true,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Header", "Mock", "Block").forEachIndexed { index, label ->
+                        FilterChip(
+                            selected = actionType == index,
+                            onClick = { actionType = index },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                when (actionType) {
+                    0 -> {
+                        OutlinedTextField(
+                            value = headerName,
+                            onValueChange = { headerName = it },
+                            label = { Text("Set header (name)") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = headerValue,
+                            onValueChange = { headerValue = it },
+                            label = { Text("Header value") },
+                            singleLine = true,
+                        )
+                    }
+                    1 -> OutlinedTextField(
+                        value = mockBody,
+                        onValueChange = { mockBody = it },
+                        label = { Text("Mock response body (JSON)") },
+                    )
+                    2 -> Text(
+                        "Blocked requests answer 403 without contacting the origin.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (name.isNotBlank() && headerName.isNotBlank()) {
+                    val action = when (actionType) {
+1 -> RuleAction.MockResponse(200, mockBody.ifBlank { """{"mocked":true}""" })
+                        2 -> RuleAction.Block()
+                        else -> RuleAction.SetHeader(Phase.REQUEST, headerName.trim(), headerValue.trim())
+                    }
+                    val valid = name.isNotBlank() &&
+                        (actionType != 0 || headerName.isNotBlank())
+                    if (valid) {
                         onConfirm(
                             RewriteRule(
                                 id = "rule-${System.currentTimeMillis()}",
@@ -155,9 +187,7 @@ private fun AddRuleDialog(onDismiss: () -> Unit, onConfirm: (RewriteRule) -> Uni
                                 enabled = true,
                                 priority = 50,
                                 match = if (hostRegex.isBlank()) RuleMatch() else RuleMatch(hostRegex = hostRegex.trim()),
-                                actions = listOf(
-                                    RuleAction.SetHeader(Phase.REQUEST, headerName.trim(), headerValue.trim())
-                                ),
+                                actions = listOf(action),
                             )
                         )
                     }

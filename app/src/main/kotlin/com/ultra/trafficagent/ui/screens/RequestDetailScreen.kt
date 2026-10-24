@@ -96,6 +96,17 @@ private fun OverviewPane(request: CapturedRequest, curl: String) {
         DetailRow("Request size", formatBytes(request.bytesUp))
         DetailRow("Response size", formatBytes(request.bytesDown))
         DetailRow("App UID", request.appUid?.toString() ?: "-")
+        request.durationMs?.let { DetailRow("Duration", "${it} ms") }
+        request.responseMime?.let { DetailRow("Response MIME", it) }
+        request.responseDecompressedBytes?.let {
+            DetailRow("Decoded response", formatBytes(it))
+        }
+        request.ja3?.let {
+            DetailRow("JA3 fingerprint", it)
+        }
+        request.error?.let {
+            DetailRow("Error", it)
+        }
 
         Spacer(Modifier.height(4.dp))
         Text("cURL", style = MaterialTheme.typography.titleMedium)

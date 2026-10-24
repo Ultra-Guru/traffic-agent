@@ -44,6 +44,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedMode by remember { mutableStateOf(CaptureMode.VPN) }
+    var mitmEnabled by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -80,6 +81,24 @@ fun SettingsScreen(
                 )
             }
 
+            SectionCard("HTTPS decryption (MITM)") {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text("Decrypt HTTPS traffic", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Requires the CA certificate to be installed and trusted\n" +
+                                "core-mitm issues per-host leafs on the fly",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = mitmEnabled, onCheckedChange = { mitmEnabled = it })
+                }
+            }
+
             SectionCard("Appearance") {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -98,11 +117,11 @@ fun SettingsScreen(
             }
 
             SectionCard("About") {
-                Text("Traffic Agent 0.1.0", style = MaterialTheme.typography.titleMedium)
+                Text("Traffic Agent 0.3.0", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Kotlin + C++ + Python on-device traffic agent.\n" +
-                        "Modules: core-capture · core-analysis · core-transform · core-agent · core-exports · native-engine\n" +
+                        "Modules: core-capture · core-analysis · core-transform · core-agent · core-exports · core-mitm · native-engine\n" +
                         "github.com/Ultra-Guru/traffic-agent",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

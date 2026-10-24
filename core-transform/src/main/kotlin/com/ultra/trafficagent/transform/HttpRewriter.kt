@@ -5,6 +5,10 @@ data class RewriteResult(
     val appliedRuleIds: List<String>,
     val changedFields: List<String>,
     val delayedByMs: Long,
+    /** A rule produced a local answer; the origin must not be contacted. */
+    val shortCircuited: Boolean = false,
+    /** A rule aborted the exchange entirely (simulated timeout). */
+    val dropped: Boolean = false,
 ) {
     companion object {
         val NONE = RewriteResult(emptyList(), emptyList(), 0)
@@ -21,6 +25,8 @@ class HttpRewriter(private val registry: RuleRegistry) {
         val applied = mutableListOf<String>()
         val changes = mutableListOf<String>()
         var delay = 0L
+        var shortCircuit = false
+        var dropped = false
 
         for (rule in registry.activeRules()) {
             if (!rule.match.matches(exchange.request)) continue
@@ -91,9 +97,32 @@ class HttpRewriter(private val registry: RuleRegistry) {
                         delay += action.millis
                         changes += "${rule.id}:delay[${action.millis}ms]"
                     }
+                    is RuleAction.MockResponse -> {
+                        val resp = exchange.response
+                            ?: MutableHttpResponse(action.status).also { exchange.response = it }
+                        resp.status = action.status
+                        resp.body = action.body
+                        resp.setHeader("content-type", action.contentType)
+                        changes += "${rule.id}:mock[${action.status}]"
+                        shortCircuit = true
+                    }
+                    is RuleAction.Block -> {
+                        val resp = exchange.response
+                            ?: MutableHttpResponse(action.status).also { exchange.response = it }
+                        resp.status = action.status
+                        resp.body = action.reason
+                        changes += "${rule.id}:block[${action.status}]"
+                        shortCircuit = true
+                    }
+                    is RuleAction.Abort -> {
+                        changes += "${rule.id}:abort[${action.timeoutMs}ms]"
+                        shortCircuit = true
+                        dropped = true
+                    }
                 }
             }
+            if (shortCircuit) break
         }
-        return RewriteResult(applied, changes, delay)
+        return RewriteResult(applied, changes, delay, shortCircuited = shortCircuit, dropped = dropped)
     }
 }

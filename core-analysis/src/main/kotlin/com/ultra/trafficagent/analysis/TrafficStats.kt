@@ -38,6 +38,8 @@ class TrafficStats {
             bytesDown = (current?.bytesDown ?: 0) + request.bytesDown,
         )
         protocols[request.protocol] = (protocols[request.protocol] ?: 0) + 1
+        val statusClass = (request.status ?: 0) / 100
+        statusClasses[statusClass] = (statusClasses[statusClass] ?: 0) + 1
         appRequestCount[request.appUid] = (appRequestCount[request.appUid] ?: 0) + 1
         requestsTotal++
         bytesUpTotal += request.bytesUp
@@ -88,10 +90,19 @@ class TrafficStats {
         hosts.clear()
         protocols.clear()
         appRequestCount.clear()
+        statusClasses.clear()
         requestsTotal = 0
         bytesUpTotal = 0
         bytesDownTotal = 0
         firstTs = Long.MAX_VALUE
         lastTs = Long.MIN_VALUE
     }
+
+    /** Requests per status class (1..5); statusless errors fall under 0. */
+    fun statusClassCounts(): Map<Int, Int> = synchronized(this) { statusClasses.toMap() }
+
+    /** Immutable totals snapshot for UI/agent tooling. */
+    data class Summary(val requests: Int, val bytesUp: Long, val bytesDown: Long)
+
+    private val statusClasses = LinkedHashMap<Int, Int>()
 }

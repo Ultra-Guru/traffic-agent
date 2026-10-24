@@ -40,7 +40,21 @@ import com.ultra.trafficagent.capture.CapturedRequest
 import com.ultra.trafficagent.capture.Protocol
 
 private enum class CaptureFilter(val label: String) {
-    ALL("All"), HTTP("HTTP"), TLS("TLS"), WEBSOCKET("WS");
+    ALL("All"), HTTP("HTTP"), TLS("TLS"), WEBSOCKET("WS"), ERROR("Error");
+}
+
+/**
+ * Parses the inline query with the same DSL the core [FilterEngine] uses:
+ * "host:weibo status:4xx size>1024". Falls back to plain keyword search on
+ * malformed input so typing never blocks the list.
+ */
+private fun filterWithQuery(requests: List<CapturedRequest>, query: String): List<CapturedRequest> {
+    if (query.isBlank()) return requests
+    return try {
+        com.ultra.trafficagent.analysis.FilterEngine.parse(query).filter(requests)
+    } catch (_: IllegalArgumentException) {
+        requests.filter { it.host.contains(query, true) || it.path.contains(query, true) }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,16 +69,15 @@ fun CaptureScreen(
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(CaptureFilter.ALL) }
 
-    val visible = requests.filter { req ->
-        val matchesQuery = query.isEmpty() || req.host.contains(query, ignoreCase = true) ||
-            req.path.contains(query, ignoreCase = true)
+    val visible = filterWithQuery(requests, query).filter { req ->
         val matchesFilter = when (filter) {
             CaptureFilter.ALL -> true
             CaptureFilter.HTTP -> req.protocol == Protocol.HTTP1 || req.protocol == Protocol.HTTP2
             CaptureFilter.TLS -> req.protocol == Protocol.TLS
             CaptureFilter.WEBSOCKET -> req.protocol == Protocol.WEBSOCKET
+            CaptureFilter.ERROR -> req.error != null || (req.status ?: 200) >= 500
         }
-        matchesQuery && matchesFilter
+        matchesFilter
     }
 
     Scaffold(
@@ -89,7 +102,7 @@ fun CaptureScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("Search host or path") },
+                label = { Text("Filter: host:weibo status:4xx size>1024") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )

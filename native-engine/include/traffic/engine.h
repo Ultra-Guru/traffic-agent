@@ -3,10 +3,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "http1.h"
+#include "http1flow.h"
 #include "ip.h"
 #include "tcp.h"
 
@@ -31,12 +33,36 @@ struct FlowKey {
 };
 
 struct EngineEvent {
-    enum class Kind { TcpReset, TlsSniDetected, Http1RequestDetected, Http1ResponseDetected, QuicDetected };
-    Kind kind = Kind::TcpReset;
+    enum class Kind {
+        TcpReset,
+        TlsSniDetected,
+        Http1RequestDetected,
+        Http1ResponseDetected,
+        QuicDetected,
+        // --- extensions (Task 2-a) ---
+        Http2HeadersDetected,  // text: first decoded HPACK headers
+        TlsJa3Detected,         // text: "sni|ja3md5"
+        DnsMessageParsed        // text: "example.com A 1.2.3.4" / "example.com?"
+    };
+    Kind kind = EngineEvent::Kind::TcpReset;
     FlowKey flow;
     uint64_t timestampMs = 0;
     std::string text;     // SNI or "GET /path"
-    int32_t numeric = 0;  // e.g. QUIC version
+    int32_t numeric = 0;  // e.g. QUIC version, HTTP/2 stream id
+};
+
+// One request/response exchange as seen on the wire. Bodies are capped at
+// Http1FlowParser::kMaxBodyBytes per direction.
+struct HttpExchangeRecord {
+    FlowKey flow;  // client -> server direction
+    uint64_t timestampMs = 0;
+    Http1Request request;
+    Http1Response response;
+    std::vector<uint8_t> requestBody;
+    std::vector<uint8_t> responseBody;
+    std::vector<uint8_t> responseDecoded;  // gzip/deflate decoded when possible
+    std::string responseMime;
+    bool truncated = false;
 };
 
 // TCP stream reassembly: dedup of retransmissions, out-of-order buffering,
@@ -75,7 +101,8 @@ private:
 };
 
 // L1/L2 engine: feeds raw IPv4 packets, reassembles TCP and emits protocol
-// detection events (TLS SNI, HTTP/1 requests/responses, QUIC).
+// detection events (TLS SNI/JA3, HTTP/1 requests/responses with exchange
+// pairing, HTTP/2 header blocks, DNS, QUIC).
 class Engine : public TcpReassembly::Listener {
 public:
     Engine() : reassembly_(this) {}
@@ -89,17 +116,56 @@ public:
     const std::vector<EngineEvent>& events() const { return events_; }
     void clearEvents() { events_.clear(); }
 
+    const std::vector<HttpExchangeRecord>& exchanges() const { return exchanges_; }
+    void clearExchanges() { exchanges_.clear(); }
+
 private:
-    struct ProtoState {
+    // Both directions of a TCP conversation resolve to one Conversation.
+    struct Conversation {
+        enum class Kind { Unknown, Http, Tls, H2, Skip };
+
+        Kind kind = Kind::Unknown;
+        FlowKey clientFlow;        // client -> server direction
+        bool clientKnown = false;
         bool sniDone = false;
-        bool httpDone = false;
+        bool ja3Done = false;
+        std::vector<uint8_t> helloBuf;  // leading ClientHello bytes (cap 8 KiB)
+
+        Http1FlowParser req{Http1FlowParser::Mode::Requests};
+        Http1FlowParser resp{Http1FlowParser::Mode::Responses};
+        std::vector<Http1Message> pendingRequests;  // FIFO awaiting responses
+
+        // HTTP/2 per-direction state (index 0 = client, 1 = server).
+        struct H2Dir {
+            std::vector<uint8_t> buf;
+            bool inHeaders = false;
+            uint32_t streamId = 0;
+            std::vector<uint8_t> block;
+        };
+        H2Dir h2[2];
+        std::map<uint32_t, uint64_t> h2StreamBytes;  // DATA bytes per stream
+        size_t h2PrefaceConsumed = 0;                // client preface skip state
+
+        uint8_t probe[24] = {};  // leading bytes used for direction sniffing
+        size_t probeLen = 0;
     };
 
     void inspect(const FlowKey& flow, const uint8_t* data, size_t len, uint64_t ts);
+    Conversation* conversationFor(const FlowKey& flow);
+    void classify(const FlowKey& flow, const uint8_t* data, size_t len, uint64_t ts);
+    void feedHttp(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
+    void feedTls(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
+    void feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
+    void drainParserMessages(Conversation& c, uint64_t ts);
+    void emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t* block, size_t len,
+                          uint64_t ts);
+    void handleDns(const FlowKey& flow, uint32_t srcPort, uint32_t dstPort, const uint8_t* payload,
+                  size_t len, uint64_t ts);
 
     TcpReassembly reassembly_;
-    std::map<FlowKey, ProtoState> proto_;
+    std::map<FlowKey, std::shared_ptr<Conversation>> convByFlow_;
     std::vector<EngineEvent> events_;
+    std::vector<HttpExchangeRecord> exchanges_;
     uint64_t lastTs_ = 0;
 };
 

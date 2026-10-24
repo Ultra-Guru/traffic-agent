@@ -105,3 +105,117 @@ TA_TEST(quic_rejects_short_input) {
     QuicInfo q{};
     TA_CHECK_EQ(detectQuic(b.data(), b.size(), &q), QuicStatus::TooShort);
 }
+
+// ---------------- message assembler ----------------
+
+namespace {
+
+Bytes wsFrameBytes(bool fin, uint8_t opcode, const Bytes& payload, bool mask = false,
+                   uint8_t maskKey = 0x00) {
+    Bytes f;
+    f.push_back(static_cast<uint8_t>((fin ? 0x80u : 0x00u) | opcode));
+    f.push_back(static_cast<uint8_t>((mask ? 0x80u : 0x00u) | (payload.size() & 0x7Fu)));
+    for (uint8_t b : payload) {
+        // caller-visible payload stays plain; masking applied inside
+    }
+    if (mask) {
+        // 4 mask bytes: use the same key repeated for the test
+        for (int i = 0; i < 4; ++i) f.push_back(maskKey);
+        for (size_t i = 0; i < payload.size(); ++i) {
+            f.push_back(static_cast<uint8_t>(payload[i] ^ maskKey));
+        }
+    } else {
+        f.insert(f.end(), payload.begin(), payload.end());
+    }
+    return f;
+}
+
+}  // namespace
+
+TA_TEST(ws_decode_unmasks_payload) {
+    Bytes plain = {'H', 'e', 'l', 'l', 'o'};
+    auto f = wsFrameBytes(true, kWsText, plain, true, 0x37);
+    WsFrameInfo info{};
+    std::vector<uint8_t> out;
+    TA_CHECK_EQ(decodeWsFrame(f.data(), f.size(), &info, &out), WsStatus::Ok);
+    TA_CHECK(info.masked);
+    TA_CHECK(info.fin);
+    TA_CHECK_EQ(info.opcode, kWsText);
+    TA_CHECK(out == plain);
+    TA_CHECK_ST(std::string(out.begin(), out.end()), "Hello");
+}
+
+TA_TEST(ws_decode_frame_split_across_feeds) {
+    Bytes plain = {'a', 'b', 'c'};
+    auto f = wsFrameBytes(true, kWsBinary, plain);
+    std::vector<uint8_t> out;
+    WsFrameInfo info{};
+    TA_CHECK_EQ(decodeWsFrame(f.data(), 2, &info, &out), WsStatus::TooShort);
+    TA_CHECK_EQ(decodeWsFrame(f.data(), f.size(), &info, &out), WsStatus::Ok);
+    TA_CHECK(out == plain);
+}
+
+TA_TEST(ws_assembler_joins_fragments) {
+    WsMessageAssembler asm1;
+    auto f1 = wsFrameBytes(false, kWsText, {'H', 'e'});
+    auto f2 = wsFrameBytes(true, kWsContinuation, {'l', 'l', 'o'});
+    asm1.feed(f1.data(), f1.size());
+    auto early = asm1.takeMessages();
+    TA_CHECK_EQ(early.size(), static_cast<size_t>(0));
+    asm1.feed(f2.data(), f2.size());
+    auto msgs = asm1.takeMessages();
+    TA_CHECK_EQ(msgs.size(), static_cast<size_t>(1));
+    TA_CHECK_EQ(msgs[0].opcode, kWsText);
+    TA_CHECK_ST(std::string(msgs[0].payload.begin(), msgs[0].payload.end()), "Hello");
+}
+
+TA_TEST(ws_assembler_control_frame_interleaves_fragments) {
+    WsMessageAssembler a;
+    auto f1 = wsFrameBytes(false, kWsText, {'1', '2'});
+    auto ping = wsFrameBytes(true, kWsPing, {'p'});
+    auto f2 = wsFrameBytes(true, kWsContinuation, {'3'});
+    a.feed(f1.data(), f1.size());
+    a.feed(ping.data(), ping.size());
+    auto mid = a.takeMessages();
+    TA_CHECK_EQ(mid.size(), static_cast<size_t>(1));
+    TA_CHECK_EQ(mid[0].opcode, kWsPing);
+    a.feed(f2.data(), f2.size());
+    auto done = a.takeMessages();
+    TA_CHECK_EQ(done.size(), static_cast<size_t>(1));
+    TA_CHECK_EQ(done[0].opcode, kWsText);
+    TA_CHECK_ST(std::string(done[0].payload.begin(), done[0].payload.end()), "123");
+}
+
+TA_TEST(ws_assembler_byte_by_byte_feed) {
+    WsMessageAssembler a;
+    auto f = wsFrameBytes(true, kWsText, {'o', 'k'});
+    for (size_t i = 0; i < f.size(); ++i) {
+        a.feed(f.data() + i, 1);
+    }
+    auto msgs = a.takeMessages();
+    TA_CHECK_EQ(msgs.size(), static_cast<size_t>(1));
+    TA_CHECK_ST(std::string(msgs[0].payload.begin(), msgs[0].payload.end()), "ok");
+}
+
+TA_TEST(ws_assembler_masks_are_stripped) {
+    WsMessageAssembler a;
+    auto f = wsFrameBytes(true, kWsText, {'s', 'e', 'c', 'r', 'e', 't'}, true, 0xAB);
+    a.feed(f.data(), f.size());
+    auto msgs = a.takeMessages();
+    TA_CHECK_EQ(msgs.size(), static_cast<size_t>(1));
+    TA_CHECK_ST(std::string(msgs[0].payload.begin(), msgs[0].payload.end()), "secret");
+}
+
+TA_TEST(ws_assembler_close_frame_short_cuts_fragmentation) {
+    WsMessageAssembler a;
+    auto f1 = wsFrameBytes(false, kWsText, {'x'});
+    auto close = wsFrameBytes(true, kWsClose, {0x03, 0xE8});  // 1008
+    a.feed(f1.data(), f1.size());
+    a.feed(close.data(), close.size());
+    auto msgs = a.takeMessages();
+    bool hasClose = false;
+    for (auto& m : msgs) {
+        if (m.opcode == kWsClose) hasClose = true;
+    }
+    TA_CHECK(hasClose);
+}

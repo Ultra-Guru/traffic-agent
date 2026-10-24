@@ -50,11 +50,14 @@ class MutableHttpResponse(
     fun removeHeader(name: String) {
         headerMap.remove(name.lowercase())
     }
+
+    /** Lowercased single-value snapshot of the current headers. */
+    fun headers(): Map<String, String> = LinkedHashMap(headerMap)
 }
 
 class MutableExchange(
     val request: MutableHttpRequest,
-    val response: MutableHttpResponse? = null,
+    var response: MutableHttpResponse? = null,
 ) {
     val url: String get() = "https://${request.host}${request.path}"
 }
@@ -68,6 +71,19 @@ sealed class RuleAction {
     data class Redirect(val host: String, val path: String) : RuleAction()
     data class SetStatus(val code: Int) : RuleAction()
     data class DelayMs(val millis: Long) : RuleAction()
+
+    /** Serves a canned answer without contacting the origin (HttpCanary "请求模拟"). */
+    data class MockResponse(
+        val status: Int = 200,
+        val body: String = "",
+        val contentType: String = "application/json",
+    ) : RuleAction()
+
+    /** Rejects the request outright. */
+    data class Block(val status: Int = 403, val reason: String = "Blocked by Traffic Agent") : RuleAction()
+
+    /** Pretends the origin never answers within [timeoutMs] (simulated hangup). */
+    data class Abort(val timeoutMs: Long) : RuleAction()
 }
 
 /** Matching criteria deciding which exchanges a rule applies to. */
