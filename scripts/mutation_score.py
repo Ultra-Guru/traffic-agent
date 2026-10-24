@@ -89,7 +89,7 @@ def main() -> int:
     parser.add_argument("--board", required=True, help="task board id, e.g. TB1")
     parser.add_argument("--paths", required=True, help="comma-separated files/dirs to mutate")
     parser.add_argument("--tests-dir", default="tests")
-    parser.add_argument("--min-score", type=float, default=0.0, help="fail if score < min-score (0-1)")
+    parser.add_argument("--min-score", type=float, default=0.0, help="fail if mutation score%% < min-score (percentage, 0-100)")
     args = parser.parse_args()
 
     files = collect_files(args.paths)
@@ -126,7 +126,8 @@ def main() -> int:
         "untested": untested,
         "tested": tested,
         "mutation_score": round(score, 4),
-        "min_score": args.min_score,
+        "mutation_score_pct": round(score * 100.0, 1),
+        "min_score_pct": args.min_score,
     }
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2, ensure_ascii=False)
@@ -140,9 +141,9 @@ def main() -> int:
     if rc not in (0, 2, 4, 8) and not counts:
         print(f"[{args.board}] mutmut failed to run (exit={rc}) — fatal", file=sys.stderr)
         return 1
-    if args.min_score and tested and score < args.min_score:
+    if args.min_score and tested and score * 100.0 < args.min_score:
         print(
-            f"[{args.board}] FAILED: mutation score {score:.3f} below threshold {args.min_score}",
+            f"[{args.board}] FAILED: mutation score {score * 100.0:.1f}% below threshold {args.min_score}%",
             file=sys.stderr,
         )
         return 2
