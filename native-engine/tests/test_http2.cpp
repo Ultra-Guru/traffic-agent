@@ -36,6 +36,13 @@ TA_TEST(h2_rejects_oversized_frame) {
     TA_CHECK_EQ(parseHttp2FrameHeader(b.data(), b.size(), &f), Http2Status::FrameTooLarge);
 }
 
+TA_TEST(h2_accepts_frame_at_exact_default_max) {
+    Bytes b = {0x00, 0x40, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00};  // length 16384
+    Http2Frame f{};
+    TA_CHECK_EQ(parseHttp2FrameHeader(b.data(), b.size(), &f), Http2Status::Ok);
+    TA_CHECK_EQ(f.length, 16384u);
+}
+
 TA_TEST(h2_frame_type_names) {
     TA_CHECK_ST(http2FrameTypeName(kH2Data), "DATA");
     TA_CHECK_ST(http2FrameTypeName(kH2Headers), "HEADERS");

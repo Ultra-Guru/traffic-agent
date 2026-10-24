@@ -45,6 +45,26 @@ TA_TEST(ws_rejects_short) {
     TA_CHECK_EQ(parseWsFrame(b.data(), b.size(), &f), WsStatus::TooShort);
 }
 
+TA_TEST(ws_accepts_two_byte_frame) {
+    // exactly 2 bytes: minimal header, zero-length text frame
+    Bytes b = {0x81, 0x00};
+    WsFrameInfo f{};
+    TA_CHECK_EQ(parseWsFrame(b.data(), b.size(), &f), WsStatus::Ok);
+    TA_CHECK(f.fin);
+    TA_CHECK_EQ(f.opcode, kWsText);
+    TA_CHECK_EQ(f.payloadLength, static_cast<uint64_t>(0));
+    TA_CHECK_EQ(f.headerLength, static_cast<size_t>(2));
+}
+
+TA_TEST(ws_accepts_small_64bit_extended_length) {
+    // len7=127 -> 64-bit length field holding a small value (5)
+    Bytes b = {0x82, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 'h', 'e', 'l', 'l', 'o'};
+    WsFrameInfo f{};
+    TA_CHECK_EQ(parseWsFrame(b.data(), b.size(), &f), WsStatus::Ok);
+    TA_CHECK_EQ(f.payloadLength, static_cast<uint64_t>(5));
+    TA_CHECK_EQ(f.headerLength, static_cast<size_t>(10));
+}
+
 TA_TEST(quic_detects_long_header_v1) {
     Bytes b = {0xC0, 0x00, 0x00, 0x00, 0x01, 0x08};
     QuicInfo q{};
@@ -52,6 +72,15 @@ TA_TEST(quic_detects_long_header_v1) {
     TA_CHECK(q.longHeader);
     TA_CHECK_EQ(q.version, 1u);
     TA_CHECK(!q.versionNegotiation);
+}
+
+TA_TEST(quic_accepts_five_byte_minimum) {
+    // exactly 5 bytes: long header byte + version
+    Bytes b = {0xC0, 0x00, 0x00, 0x00, 0x01};
+    QuicInfo q{};
+    TA_CHECK_EQ(detectQuic(b.data(), b.size(), &q), QuicStatus::Ok);
+    TA_CHECK(q.longHeader);
+    TA_CHECK_EQ(q.version, 1u);
 }
 
 TA_TEST(quic_detects_version_negotiation) {

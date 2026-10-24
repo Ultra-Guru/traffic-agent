@@ -51,3 +51,11 @@ TA_TEST(udp_rejects_short_and_bad_length) {
     c[4] = 0; c[5] = 7;  // length field 7 < 8
     TA_CHECK_EQ(parseUdp(c.data(), c.size(), &u), UdpStatus::BadLength);
 }
+
+TA_TEST(udp_accepts_header_only_length_field) {
+    Bytes b(8, 0);
+    b[4] = 0; b[5] = 8;  // length field exactly 8
+    UdpHeader u{};
+    TA_CHECK_EQ(parseUdp(b.data(), b.size(), &u), UdpStatus::Ok);
+    TA_CHECK_EQ(u.length, 8);
+}

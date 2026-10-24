@@ -43,3 +43,28 @@ TA_TEST(dns_rejects_unterminated_name) {
     DnsQuestion q{};
     TA_CHECK(parseDnsQuestion(cut.data(), cut.size(), &q) != DnsStatus::Ok);
 }
+
+TA_TEST(dns_header_only_with_questions_is_malformed) {
+    // exactly 12 bytes: header says qdcount=1 but the question body is absent
+    Bytes b(12, 0);
+    b[4] = 0; b[5] = 1;
+    DnsQuestion q{};
+    TA_CHECK_EQ(parseDnsQuestion(b.data(), b.size(), &q), DnsStatus::MalformedName);
+}
+
+TA_TEST(dns_accepts_max_label_length) {
+    std::string label63(63, 'a');
+    auto d = tb::dnsQuery(label63 + ".com");
+    DnsQuestion q{};
+    TA_CHECK_EQ(parseDnsQuestion(d.data(), d.size(), &q), DnsStatus::Ok);
+    TA_CHECK_EQ(q.name.size(), static_cast<size_t>(63 + 4));  // "a"*63 + ".com"
+}
+
+TA_TEST(dns_accepts_name_of_total_255) {
+    // 4 labels of 63 + one label of 3 -> total label bytes = 255 (the limit)
+    std::string l63(63, 'x');
+    std::string name = l63 + "." + l63 + "." + l63 + "." + l63 + ".abc";
+    auto d = tb::dnsQuery(name);
+    DnsQuestion q{};
+    TA_CHECK_EQ(parseDnsQuestion(d.data(), d.size(), &q), DnsStatus::Ok);
+}

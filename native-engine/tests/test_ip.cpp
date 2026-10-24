@@ -68,3 +68,11 @@ TA_TEST(ip_payload_null_for_invalid) {
     TA_CHECK(ipv4Payload(b.data(), b.size()) == nullptr);
     TA_CHECK(ipv4Payload(nullptr, 40) == nullptr);
 }
+
+TA_TEST(ip_payload_null_when_header_consumes_everything) {
+    // exactly 20 bytes: the IPv4 header fills the whole packet
+    Bytes b(20, 0);
+    b[0] = 0x45;
+    b[2] = 0; b[3] = 20;  // total length 20
+    TA_CHECK(ipv4Payload(b.data(), b.size()) == nullptr);
+}

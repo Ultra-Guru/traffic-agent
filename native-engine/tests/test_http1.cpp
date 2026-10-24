@@ -70,6 +70,31 @@ TA_TEST(http1_allows_empty_header_block) {
     TA_CHECK_EQ(r.headerEnd, raw.size());
 }
 
+TA_TEST(http1_accepts_minimal_sixteen_byte_request) {
+    // exactly 16 bytes: the shortest well-formed request line + CRLFCRLF
+    std::string raw = "A / HTTP/1.0\r\n\r\n";
+    auto b = tb::str(raw);
+    TA_CHECK_EQ(b.size(), static_cast<size_t>(16));
+    Http1Request r{};
+    TA_CHECK_EQ(parseHttpRequest(b.data(), b.size(), &r), Http1Status::Ok);
+    TA_CHECK_ST(r.method, "A");
+    TA_CHECK_ST(r.version, "HTTP/1.0");
+}
+
+TA_TEST(http1_rejects_request_line_without_spaces) {
+    std::string raw = "NOSPACES-ON-THIS-LINE\r\n\r\n";
+    auto b = tb::str(raw);
+    Http1Request r{};
+    TA_CHECK_EQ(parseHttpRequest(b.data(), b.size(), &r), Http1Status::MalformedRequestLine);
+}
+
+TA_TEST(http1_rejects_non_http_version_token) {
+    std::string raw = "GET / FTP/1.0\r\n\r\n";
+    auto b = tb::str(raw);
+    Http1Request r{};
+    TA_CHECK_EQ(parseHttpRequest(b.data(), b.size(), &r), Http1Status::MalformedRequestLine);
+}
+
 TA_TEST(http1_rejects_bad_content_length) {
     std::string raw = "POST / HTTP/1.1\r\nHost: h\r\nContent-Length: abc\r\n\r\n";
     auto b = tb::str(raw);

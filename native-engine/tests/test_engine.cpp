@@ -131,6 +131,14 @@ TA_TEST(engine_ignores_udp_443_non_quic) {
     TA_CHECK(e.events().empty());
 }
 
+TA_TEST(engine_ignores_quic_on_non_443_port) {
+    Engine e;
+    Bytes q = {0xC0, 0x00, 0x00, 0x00, 0x01, 0x08, 0x09};
+    auto pkt = tb::ipv4(tb::udpDatagram(50000, 8443, q), 17);
+    e.feedPacket(pkt.data(), pkt.size(), 9ULL);
+    TA_CHECK(e.events().empty());
+}
+
 TA_TEST(engine_rejects_invalid_ip) {
     Engine e;
     Bytes bad(10, 0);

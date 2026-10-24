@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: "Native engine: C++ tests + mutation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run unit tests
+        run: |
+          cmake -S native-engine -B native-engine/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build native-engine/build -j"$(nproc)"
+          ctest --test-dir native-engine/build --output-on-failure
+
+      - name: Mutation testing (source-annotated mutator)
+        run: python3 scripts/native_mutate.py --min-score 90
+
+  python:
+    name: "Python agent: pytest + mutmut"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: pip install pytest mutmut==3.8.0
+
+      - name: Unit tests
+        working-directory: python
+        run: python -m pytest tests -q
+
+      - name: Mutation testing (mutmut)
+        working-directory: python
+        run: mutmut run
+
+      - name: Mutation gate
+        run: python3 scripts/mutmut_gate.py --min-score 70
+
+  kotlin:
+    name: "Kotlin core: JUnit + PIT"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (JVM core modules)
+        run: ./gradlew -Pta.skipAndroid allUnitTests
+
+      - name: Mutation testing (PIT / pitest)
+        run: ./gradlew -Pta.skipAndroid allPitest
+
+      - name: Mutation gate
+        run: python3 scripts/pitest_gate.py --min-score 65
+
+      - name: Upload PIT reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-reports
+          path: core-*/build/reports/pitest/**
+
+  android:
+    name: "Android app: assembleDebug (M3 + NDK)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-agent-debug-apk
+          path: app/build/outputs/apk/debug/*.apk

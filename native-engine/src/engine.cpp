@@ -11,7 +11,7 @@ namespace {
 bool startsWith(const uint8_t* data, size_t len, const char* prefix) {
     size_t n = 0;
     while (prefix[n] != '\0') ++n;
-    if (len < n) return false;  // MUT:<=
+    if (len < n) return false; 
     for (size_t i = 0; i < n; ++i) {
         if (data[i] != static_cast<uint8_t>(prefix[i])) return false;
     }
@@ -48,7 +48,7 @@ void TcpReassembly::onSegment(const FlowKey& flow, uint32_t seq, uint8_t tcpFlag
         }
     }
     if (len == 0) return;
-    if (seq + len <= st.nextSeq) return;  // pure retransmission, already seen  // MUT:<
+    if (seq + len <= st.nextSeq) return;  // pure retransmission, already seen 
 
     if (seq <= st.nextSeq) {
         // In-order (or partially overlapping): deliver the new tail.

@@ -29,7 +29,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "traffic-agent"
 
-include(":app")
+// Desktop verification without an Android SDK: pass -Pta.skipAndroid
+// to exclude the :app module from the build (core modules stay in).
+if (!providers.gradleProperty("ta.skipAndroid").isPresent) {
+    include(":app")
+}
 include(":core-capture")
 include(":core-analysis")
 include(":core-transform")

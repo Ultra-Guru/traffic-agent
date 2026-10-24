@@ -45,3 +45,13 @@ TA_TEST(sni_six_bytes_reports_malformed) {
     TlsSniResult r{};
     TA_CHECK_EQ(parseTlsClientHelloSni(hello.data(), 6, &r), SniStatus::Malformed);
 }
+
+TA_TEST(sni_accepts_empty_host_name) {
+    // A zero-length host_name is structurally valid; it exercises the
+    // boundary of the final readU16 inside the server_name extension.
+    auto hello = tb::clientHello("");
+    TlsSniResult r{};
+    TA_CHECK_EQ(parseTlsClientHelloSni(hello.data(), hello.size(), &r), SniStatus::Ok);
+    TA_CHECK(r.sni.empty());
+    TA_CHECK_EQ(r.recordVersion, 0x0301);
+}

@@ -33,3 +33,7 @@ cmake-build-*/
 # OS / misc
 .DS_Store
 *.log
+
+# mutmut
+python/mutants/
+python/.mutmut-cache

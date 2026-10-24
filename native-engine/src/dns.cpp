@@ -13,7 +13,7 @@ DnsStatus parseDnsQuestion(const uint8_t* data, size_t len, DnsQuestion* out) {
     std::string name;
     size_t total = 0;
     while (true) {
-        if (pos >= len) return DnsStatus::MalformedName;  // MUT:>
+        if (pos >= len) return DnsStatus::MalformedName; 
         uint8_t labelLen = data[pos];
         if (labelLen == 0) {
             ++pos;
