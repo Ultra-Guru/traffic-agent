@@ -1,0 +1,985 @@
+{
+    "tests_by_mangled_function_name": {
+        "traffic_agent.risk.audit.x__digest": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_audit.py::test_count_and_by_tool",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_audit.py::test_persist_appends_jsonl",
+            "tests/test_audit.py::test_tail_returns_most_recent_n",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_audit.py::test_clear",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_audit.py::test_params_digest_is_stable_and_truncated",
+            "tests/test_audit.py::test_tail_zero_or_negative_empty",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_audit.py::test_append_and_tail"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1append": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_audit.py::test_count_and_by_tool",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_audit.py::test_persist_appends_jsonl",
+            "tests/test_audit.py::test_tail_returns_most_recent_n",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_audit.py::test_clear",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_audit.py::test_tail_zero_or_negative_empty",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_audit.py::test_append_and_tail"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1tail": [
+            "tests/test_audit.py::test_tail_zero_or_negative_empty",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_audit.py::test_tail_returns_most_recent_n",
+            "tests/test_audit.py::test_append_and_tail"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_audit.py::test_count_and_by_tool",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_audit.py::test_persist_appends_jsonl",
+            "tests/test_audit.py::test_tail_returns_most_recent_n",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_audit.py::test_clear",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_audit.py::test_tail_zero_or_negative_empty",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_audit.py::test_append_and_tail"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1by_tool": [
+            "tests/test_audit.py::test_count_and_by_tool"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1clear": [
+            "tests/test_audit.py::test_clear"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1persist": [
+            "tests/test_audit.py::test_persist_appends_jsonl"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1encode": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_encode_escapes_values",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_bridge.py::test_decode_round_trip",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1decode": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_bridge.py::test_decode_round_trip",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_gate.py::test_dangerous_allowed_when_policy_permits",
+            "tests/test_gate.py::test_risk_of_helper",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_gate.py::test_unknown_tool_is_denied",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_gate.py::test_read_only_policy_blocks_caution",
+            "tests/test_gate.py::test_safe_tools_pass_default_policy",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_gate.py::test_caution_tools_pass_default_policy",
+            "tests/test_gate.py::test_dangerous_tools_blocked_by_default_policy",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_gate.py::test_critical_requires_approval",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1add": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_store.py::test_add_assigns_unique_ids",
+            "tests/test_store.py::test_get_returns_the_stored_request",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_store.py::test_find_by_host_regex",
+            "tests/test_store.py::test_stats_summary_orders_top_hosts_by_request_count",
+            "tests/test_store.py::test_remove_header",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_store.py::test_find_by_path_contains",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_store.py::test_list_respects_limit_and_offset",
+            "tests/test_store.py::test_stats_summary",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_store.py::test_find_by_method_and_status",
+            "tests/test_bridge.py::test_audit_trails_calls"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_registry.py::test_empty_name_rejected",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_registry.py::test_docs",
+            "tests/test_registry.py::test_duplicate_registration_rejected",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_registry.py::test_unknown_tool_raises",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_registry.py::test_unregister",
+            "tests/test_registry.py::test_bad_params_raise_bridge_error",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_registry.py::test_dispatch_returns_callables_result_verbatim",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_registry.py::test_register_and_dispatch"
+        ],
+        "traffic_agent.tools.transform_tools.x_register_transform_tools": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_registry.py::test_unknown_tool_raises",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_registry.py::test_bad_params_raise_bridge_error",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_registry.py::test_dispatch_returns_callables_result_verbatim",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_registry.py::test_register_and_dispatch"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_store.py::test_add_assigns_unique_ids",
+            "tests/test_store.py::test_get_returns_the_stored_request",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_store.py::test_find_by_host_regex",
+            "tests/test_store.py::test_stats_summary_orders_top_hosts_by_request_count",
+            "tests/test_store.py::test_remove_header",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_store.py::test_find_by_path_contains",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_store.py::test_get_unknown_raises",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_store.py::test_list_respects_limit_and_offset",
+            "tests/test_store.py::test_stats_summary",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_store.py::test_find_by_method_and_status",
+            "tests/test_bridge.py::test_audit_trails_calls"
+        ],
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1evaluate": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_gate.py::test_dangerous_allowed_when_policy_permits",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_gate.py::test_unknown_tool_is_denied",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_gate.py::test_read_only_policy_blocks_caution",
+            "tests/test_gate.py::test_safe_tools_pass_default_policy",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_gate.py::test_caution_tools_pass_default_policy",
+            "tests/test_gate.py::test_dangerous_tools_blocked_by_default_policy",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_gate.py::test_critical_requires_approval",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1call": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.tools.capture_tools.x_register_capture_tools": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls"
+        ],
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1risk_of": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_gate.py::test_dangerous_allowed_when_policy_permits",
+            "tests/test_gate.py::test_risk_of_helper",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_gate.py::test_unknown_tool_is_denied",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_gate.py::test_read_only_policy_blocks_caution",
+            "tests/test_gate.py::test_safe_tools_pass_default_policy",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_gate.py::test_caution_tools_pass_default_policy",
+            "tests/test_gate.py::test_dangerous_tools_blocked_by_default_policy",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_gate.py::test_critical_requires_approval",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1list": [
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_store.py::test_add_assigns_unique_ids",
+            "tests/test_store.py::test_get_returns_the_stored_request",
+            "tests/test_store.py::test_remove_header",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_store.py::test_list_respects_limit_and_offset",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls"
+        ],
+        "traffic_agent.tools.capture_tools.x__to_dict": [
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_list_requests_returns_dicts"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1register": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_bridge.py::test_successful_list_call",
+            "tests/test_registry.py::test_empty_name_rejected",
+            "tests/test_bridge.py::test_empty_line_reports_error",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_list_requests_returns_dicts",
+            "tests/test_registry.py::test_docs",
+            "tests/test_registry.py::test_duplicate_registration_rejected",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_set_breakpoint_tool",
+            "tests/test_bridge.py::test_missing_method_reports_error",
+            "tests/test_tools.py::test_list_requests_offset",
+            "tests/test_bridge.py::test_gated_tool_denied_by_default_policy",
+            "tests/test_tools.py::test_rewrite_url_tool",
+            "tests/test_tools.py::test_json_serializable_payloads",
+            "tests/test_tools.py::test_stats_summary_tool",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_bridge.py::test_unknown_method_reports_error",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_registry.py::test_unregister",
+            "tests/test_registry.py::test_bad_params_raise_bridge_error",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_registry.py::test_dispatch_returns_callables_result_verbatim",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_bridge.py::test_audit_trails_calls",
+            "tests/test_registry.py::test_register_and_dispatch"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1get": [
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_store.py::test_get_returns_the_stored_request",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_store.py::test_get_unknown_raises",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_bridge.py::test_read_request_call",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_store.py::test_remove_header",
+            "tests/test_tools.py::test_read_request",
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_tools.py::test_rewrite_url_tool"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1modify_header": [
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_tools.py::test_modify_header_tool"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1_update": [
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_store.py::test_modify_header_on_response_phase",
+            "tests/test_bridge.py::test_caution_tool_allowed",
+            "tests/test_store.py::test_modify_header_replaces_case_insensitively",
+            "tests/test_tools.py::test_remove_header_tool",
+            "tests/test_tools.py::test_modify_header_tool",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements",
+            "tests/test_store.py::test_remove_header",
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_tools.py::test_rewrite_url_tool"
+        ],
+        "traffic_agent.tools.registry.x\u01c1BridgeError\u01c1__init__": [
+            "tests/test_bridge.py::test_critical_requires_approval_flag",
+            "tests/test_registry.py::test_empty_name_rejected",
+            "tests/test_registry.py::test_duplicate_registration_rejected",
+            "tests/test_registry.py::test_unknown_tool_raises",
+            "tests/test_registry.py::test_bad_params_raise_bridge_error"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1serve": [
+            "tests/test_bridge.py::test_serve_loop_over_stringio"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1stats_summary": [
+            "tests/test_bridge.py::test_serve_loop_over_stringio",
+            "tests/test_store.py::test_stats_summary_orders_top_hosts_by_request_count",
+            "tests/test_store.py::test_stats_summary",
+            "tests/test_tools.py::test_stats_summary_tool"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__init__": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_executor.py::test_open_is_not_available",
+            "tests/test_executor.py::test_allowed_import_passes",
+            "tests/test_executor.py::test_return_value_visible_in_namespace",
+            "tests/test_executor.py::test_simple_script_runs",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_executor.py::test_runtime_exception_reported_not_raised",
+            "tests/test_executor.py::test_eval_is_not_available",
+            "tests/test_scriptlets.py::test_hooks_are_optional",
+            "tests/test_executor.py::test_print_is_captured",
+            "tests/test_executor.py::test_context_values_visible",
+            "tests/test_executor.py::test_timeout_kills_infinite_loop"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_executor.py::test_forbidden_import_from_rejected",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_executor.py::test_context_values_visible",
+            "tests/test_scriptlets.py::test_bad_source_is_rejected_at_load",
+            "tests/test_executor.py::test_allowed_import_passes",
+            "tests/test_executor.py::test_runtime_exception_reported_not_raised",
+            "tests/test_executor.py::test_open_is_not_available",
+            "tests/test_executor.py::test_return_value_visible_in_namespace",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_executor.py::test_eval_is_not_available",
+            "tests/test_scriptlets.py::test_hooks_are_optional",
+            "tests/test_executor.py::test_forbidden_subprocess_rejected",
+            "tests/test_executor.py::test_forbidden_os_import_rejected",
+            "tests/test_executor.py::test_simple_script_runs",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_executor.py::test_syntax_error_reported",
+            "tests/test_executor.py::test_print_is_captured",
+            "tests/test_executor.py::test_timeout_kills_infinite_loop"
+        ],
+        "traffic_agent.sandbox.executor.x__check_ast": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_executor.py::test_forbidden_import_from_rejected",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_executor.py::test_context_values_visible",
+            "tests/test_executor.py::test_allowed_import_passes",
+            "tests/test_executor.py::test_runtime_exception_reported_not_raised",
+            "tests/test_executor.py::test_open_is_not_available",
+            "tests/test_executor.py::test_return_value_visible_in_namespace",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_executor.py::test_eval_is_not_available",
+            "tests/test_scriptlets.py::test_hooks_are_optional",
+            "tests/test_executor.py::test_forbidden_subprocess_rejected",
+            "tests/test_executor.py::test_forbidden_os_import_rejected",
+            "tests/test_executor.py::test_simple_script_runs",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_executor.py::test_print_is_captured",
+            "tests/test_executor.py::test_timeout_kills_infinite_loop"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1__init__": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_scriptlets.py::test_unknown_scriptlet_raises",
+            "tests/test_executor.py::test_forbidden_import_from_rejected",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_executor.py::test_context_values_visible",
+            "tests/test_scriptlets.py::test_bad_source_is_rejected_at_load",
+            "tests/test_executor.py::test_allowed_import_passes",
+            "tests/test_executor.py::test_runtime_exception_reported_not_raised",
+            "tests/test_executor.py::test_open_is_not_available",
+            "tests/test_executor.py::test_return_value_visible_in_namespace",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_executor.py::test_eval_is_not_available",
+            "tests/test_scriptlets.py::test_hooks_are_optional",
+            "tests/test_executor.py::test_forbidden_subprocess_rejected",
+            "tests/test_executor.py::test_forbidden_os_import_rejected",
+            "tests/test_executor.py::test_simple_script_runs",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_executor.py::test_syntax_error_reported",
+            "tests/test_executor.py::test_print_is_captured",
+            "tests/test_executor.py::test_timeout_kills_infinite_loop"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxViolation\u01c1__init__": [
+            "tests/test_executor.py::test_forbidden_os_import_rejected",
+            "tests/test_executor.py::test_forbidden_import_from_rejected",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_executor.py::test_forbidden_subprocess_rejected"
+        ],
+        "traffic_agent.sandbox.executor.x__safe_import": [
+            "tests/test_executor.py::test_allowed_import_passes"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__call__": [
+            "tests/test_executor.py::test_print_is_captured"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1names": [
+            "tests/test_registry.py::test_register_and_dispatch"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1has": [
+            "tests/test_registry.py::test_unregister",
+            "tests/test_registry.py::test_register_and_dispatch"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1unregister": [
+            "tests/test_registry.py::test_unregister"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1doc": [
+            "tests/test_registry.py::test_docs"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1load": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_bad_source_is_rejected_at_load",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_scriptlets.py::test_hooks_are_optional"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_request": [
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_unknown_scriptlet_raises"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1__init__": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_scriptlets.py::test_hooks_are_optional"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_request": [
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1__init__": [
+            "tests/test_scriptlets.py::test_listing_and_unloading",
+            "tests/test_scriptlets.py::test_bad_source_is_rejected_at_load",
+            "tests/test_scriptlets.py::test_forbidden_source_rejected",
+            "tests/test_scriptlets.py::test_unknown_scriptlet_raises",
+            "tests/test_scriptlets.py::test_timeout_scriptlet_fails",
+            "tests/test_scriptlets.py::test_calling_missing_hook_raises",
+            "tests/test_scriptlets.py::test_load_and_apply_on_request",
+            "tests/test_scriptlets.py::test_on_response_hook",
+            "tests/test_scriptlets.py::test_hooks_are_optional"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_response": [
+            "tests/test_scriptlets.py::test_on_response_hook"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_response": [
+            "tests/test_scriptlets.py::test_on_response_hook"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1unload": [
+            "tests/test_scriptlets.py::test_listing_and_unloading"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1names": [
+            "tests/test_scriptlets.py::test_listing_and_unloading"
+        ],
+        "traffic_agent.store.x\u01c1UnknownRequest\u01c1__init__": [
+            "tests/test_store.py::test_get_unknown_raises"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1find": [
+            "tests/test_store.py::test_find_by_path_contains",
+            "tests/test_tools.py::test_filter_requests_by_host",
+            "tests/test_tools.py::test_filter_requests_by_method",
+            "tests/test_store.py::test_find_by_host_regex",
+            "tests/test_store.py::test_find_by_method_and_status"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1remove_header": [
+            "tests/test_store.py::test_remove_header",
+            "tests/test_tools.py::test_remove_header_tool"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1rewrite_url": [
+            "tests/test_store.py::test_rewrite_url_partial",
+            "tests/test_tools.py::test_rewrite_url_tool"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1set_body": [
+            "tests/test_store.py::test_set_body_phases",
+            "tests/test_tools.py::test_modify_body_tool_no_match",
+            "tests/test_tools.py::test_modify_body_tool_bounds_replacements"
+        ]
+    },
+    "duration_by_test": {
+        "tests/test_audit.py::test_append_and_tail": 0.0002499910001461103,
+        "tests/test_audit.py::test_tail_returns_most_recent_n": 0.00017919300034918706,
+        "tests/test_audit.py::test_tail_zero_or_negative_empty": 0.00011893900000359281,
+        "tests/test_audit.py::test_count_and_by_tool": 0.0001222169998982281,
+        "tests/test_audit.py::test_params_digest_is_stable_and_truncated": 0.00013023400015299558,
+        "tests/test_audit.py::test_clear": 9.601400006431504e-05,
+        "tests/test_audit.py::test_persist_appends_jsonl": 0.0003587299997889204,
+        "tests/test_bridge.py::test_encode_escapes_values": 0.00012009400006718352,
+        "tests/test_bridge.py::test_decode_round_trip": 0.0001239849998455611,
+        "tests/test_bridge.py::test_successful_list_call": 0.000592429999869637,
+        "tests/test_bridge.py::test_read_request_call": 0.0003794940002990188,
+        "tests/test_bridge.py::test_unknown_method_reports_error": 0.00027576399997997214,
+        "tests/test_bridge.py::test_missing_method_reports_error": 0.00023878799993326538,
+        "tests/test_bridge.py::test_empty_line_reports_error": 0.00019801799999186187,
+        "tests/test_bridge.py::test_gated_tool_denied_by_default_policy": 0.00028546199973789044,
+        "tests/test_bridge.py::test_caution_tool_allowed": 0.00033896599961735774,
+        "tests/test_bridge.py::test_critical_requires_approval_flag": 0.00033484300001873635,
+        "tests/test_bridge.py::test_audit_trails_calls": 0.00037856299968552776,
+        "tests/test_bridge.py::test_serve_loop_over_stringio": 0.00036548700018101954,
+        "tests/test_executor.py::test_simple_script_runs": 0.00025529300000926014,
+        "tests/test_executor.py::test_return_value_visible_in_namespace": 0.00018913199983217055,
+        "tests/test_executor.py::test_syntax_error_reported": 0.00014799599966863752,
+        "tests/test_executor.py::test_forbidden_os_import_rejected": 0.00015395599984913133,
+        "tests/test_executor.py::test_forbidden_subprocess_rejected": 0.00015372000007118913,
+        "tests/test_executor.py::test_forbidden_import_from_rejected": 0.00012497800025812467,
+        "tests/test_executor.py::test_allowed_import_passes": 0.000257929999861517,
+        "tests/test_executor.py::test_open_is_not_available": 0.00041213499980585766,
+        "tests/test_executor.py::test_eval_is_not_available": 0.00018777900004351977,
+        "tests/test_executor.py::test_timeout_kills_infinite_loop": 0.15033531100016262,
+        "tests/test_executor.py::test_print_is_captured": 0.00028094800018152455,
+        "tests/test_executor.py::test_context_values_visible": 0.00019913000005544745,
+        "tests/test_executor.py::test_runtime_exception_reported_not_raised": 0.0001704320002318127,
+        "tests/test_executor.py::test_allowed_builtins_cover_common_cases": 6.480899992311606e-05,
+        "tests/test_executor.py::test_forbidden_set_covers_os_and_network": 6.4058000134537e-05,
+        "tests/test_gate.py::test_risk_levels_are_ordered": 6.864499982839334e-05,
+        "tests/test_gate.py::test_every_tool_has_a_risk": 7.441199977620272e-05,
+        "tests/test_gate.py::test_unknown_tool_is_denied": 0.00010480999981155037,
+        "tests/test_gate.py::test_safe_tools_pass_default_policy": 9.79389997155522e-05,
+        "tests/test_gate.py::test_caution_tools_pass_default_policy": 0.00011384099980205065,
+        "tests/test_gate.py::test_dangerous_tools_blocked_by_default_policy": 8.784200008449261e-05,
+        "tests/test_gate.py::test_dangerous_allowed_when_policy_permits": 9.625300026527839e-05,
+        "tests/test_gate.py::test_critical_requires_approval": 9.874499983197893e-05,
+        "tests/test_gate.py::test_read_only_policy_blocks_caution": 8.440000010523363e-05,
+        "tests/test_gate.py::test_risk_of_helper": 8.289800007332815e-05,
+        "tests/test_registry.py::test_register_and_dispatch": 0.0001094939998438349,
+        "tests/test_registry.py::test_unknown_tool_raises": 0.00011609100010900875,
+        "tests/test_registry.py::test_bad_params_raise_bridge_error": 0.00011167899992869934,
+        "tests/test_registry.py::test_duplicate_registration_rejected": 0.00010131099998034188,
+        "tests/test_registry.py::test_empty_name_rejected": 9.24420000956161e-05,
+        "tests/test_registry.py::test_unregister": 9.780400023373659e-05,
+        "tests/test_registry.py::test_docs": 8.757599971431773e-05,
+        "tests/test_registry.py::test_dispatch_returns_callables_result_verbatim": 8.642800003144657e-05,
+        "tests/test_scriptlets.py::test_load_and_apply_on_request": 0.0003714240001500002,
+        "tests/test_scriptlets.py::test_on_response_hook": 0.0003005130001838552,
+        "tests/test_scriptlets.py::test_hooks_are_optional": 0.00018181899986302597,
+        "tests/test_scriptlets.py::test_calling_missing_hook_raises": 0.00021224000010988675,
+        "tests/test_scriptlets.py::test_bad_source_is_rejected_at_load": 0.00014876300019750488,
+        "tests/test_scriptlets.py::test_forbidden_source_rejected": 0.00016494999999849824,
+        "tests/test_scriptlets.py::test_listing_and_unloading": 0.0002906739996433316,
+        "tests/test_scriptlets.py::test_unknown_scriptlet_raises": 0.00010341200004404527,
+        "tests/test_scriptlets.py::test_timeout_scriptlet_fails": 0.12035001200001716,
+        "tests/test_store.py::test_add_assigns_unique_ids": 0.00015629700010322267,
+        "tests/test_store.py::test_get_returns_the_stored_request": 0.00010065800006486825,
+        "tests/test_store.py::test_get_unknown_raises": 0.00011712100013028248,
+        "tests/test_store.py::test_list_respects_limit_and_offset": 0.00011928300000363379,
+        "tests/test_store.py::test_find_by_host_regex": 0.00022531500007971772,
+        "tests/test_store.py::test_find_by_method_and_status": 0.00011095600029875641,
+        "tests/test_store.py::test_find_by_path_contains": 0.0001077080000868591,
+        "tests/test_store.py::test_stats_summary": 0.0001321510003435833,
+        "tests/test_store.py::test_stats_summary_orders_top_hosts_by_request_count": 0.00014567000016540987,
+        "tests/test_store.py::test_modify_header_replaces_case_insensitively": 0.00012147000006734743,
+        "tests/test_store.py::test_modify_header_on_response_phase": 0.00010554899972703424,
+        "tests/test_store.py::test_remove_header": 0.00011946299991905107,
+        "tests/test_store.py::test_rewrite_url_partial": 0.0001231270002790552,
+        "tests/test_store.py::test_set_body_phases": 0.00012119499979235115,
+        "tests/test_tools.py::test_list_requests_returns_dicts": 0.0001874150002549868,
+        "tests/test_tools.py::test_list_requests_offset": 0.00014397499990081997,
+        "tests/test_tools.py::test_read_request": 0.00015971100037859287,
+        "tests/test_tools.py::test_filter_requests_by_host": 0.00024197099992306903,
+        "tests/test_tools.py::test_filter_requests_by_method": 0.00014597100016544573,
+        "tests/test_tools.py::test_stats_summary_tool": 0.00015398100003949367,
+        "tests/test_tools.py::test_modify_header_tool": 0.0001722409997455543,
+        "tests/test_tools.py::test_remove_header_tool": 0.00016939899978751782,
+        "tests/test_tools.py::test_rewrite_url_tool": 0.00018428400017000968,
+        "tests/test_tools.py::test_modify_body_tool_bounds_replacements": 0.0004063569999743777,
+        "tests/test_tools.py::test_modify_body_tool_no_match": 0.00022012199997334392,
+        "tests/test_tools.py::test_set_breakpoint_tool": 0.00015522599960604566,
+        "tests/test_tools.py::test_json_serializable_payloads": 0.00020089300005565747
+    },
+    "stats_time": 2.4686850619999996,
+    "function_hashes": {
+        "traffic_agent.store.x\u01c1UnknownRequest\u01c1__init__": "85e90fcfb0b0",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1__init__": "39c855609300",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1get": "84a76731ec75",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1list": "2b9b4c53f233",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1find": "a7c3640e9ebd",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1stats_summary": "fd5bd5679884",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1add": "5a11c7ed2398",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1_update": "1daf4d1ea5f2",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1modify_header": "e4f75d765cdb",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1remove_header": "0c2f24ca324c",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1rewrite_url": "d1406f420af0",
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1set_body": "09d23185cd4b",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__": "7e7390fb038b",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1encode": "b52c86e60125",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1decode": "89c4a8d935b1",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line": "0db0011d7d9f",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1call": "7682f73a80ff",
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1serve": "6df36a546e71",
+        "traffic_agent.bridge.x_main": "9b48f047bb53",
+        "traffic_agent.risk.audit.x__digest": "ec907d5cbc4a",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1__init__": "e5cd69ce8086",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1append": "92fdcafaa226",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1tail": "e80d0d9d042e",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1by_tool": "e90b05e85814",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1clear": "a8b752e09821",
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1persist": "fc2234c4d675",
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1__init__": "ce878a0356b9",
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1risk_of": "69e6caab7ef8",
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1evaluate": "b2dab1132dc7",
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1__init__": "57a120001069",
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_request": "c175e394702b",
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_response": "4ddae7c4baaa",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1__init__": "01932258875f",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1load": "866d89022e17",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1get": "7b51528db32d",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1names": "df55cc1c7556",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1unload": "c9aebacc9202",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_request": "bd2db7211bfd",
+        "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_response": "b4464ac95e0b",
+        "traffic_agent.sandbox.executor.x\u01c1SandboxViolation\u01c1__init__": "58b66b39b2c1",
+        "traffic_agent.sandbox.executor.x__safe_import": "e9019fc7d1c0",
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__init__": "b990ec1b7066",
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__call__": "8ffa324abbca",
+        "traffic_agent.sandbox.executor.x__check_ast": "963f644aebdc",
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1__init__": "231847ab1d11",
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run": "1e4972fb8452",
+        "traffic_agent.tools.capture_tools.x__to_dict": "5afcc8c5736c",
+        "traffic_agent.tools.capture_tools.x_register_capture_tools": "2c5181bdc3d5",
+        "traffic_agent.tools.registry.x\u01c1BridgeError\u01c1__init__": "510ac6ece7f3",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1__init__": "ba438b16585e",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1register": "267bc370c7d6",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1unregister": "12c401189f4e",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1names": "d93e8507920d",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1doc": "6fe0bc49c6e8",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1has": "585fb310d057",
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch": "f7cea88e5ae3",
+        "traffic_agent.tools.transform_tools.x_register_transform_tools": "4a5cf20be5e4"
+    },
+    "function_dependencies": {
+        "traffic_agent.risk.audit.x__digest": [
+            "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1append"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1__init__": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1__init__": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__"
+        ],
+        "traffic_agent.tools.capture_tools.x_register_capture_tools": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1register": [
+            "traffic_agent.tools.transform_tools.x_register_transform_tools",
+            "traffic_agent.tools.capture_tools.x_register_capture_tools"
+        ],
+        "traffic_agent.tools.transform_tools.x_register_transform_tools": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1__init__"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1decode": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1call": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line"
+        ],
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1evaluate": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1call"
+        ],
+        "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1risk_of": [
+            "traffic_agent.risk.gate.x\u01c1RiskGate\u01c1evaluate"
+        ],
+        "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1call"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1list": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.tools.capture_tools.x__to_dict": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.risk.audit.x\u01c1AuditLog\u01c1append": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1call"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1encode": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1call",
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1get": [
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1remove_header",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1modify_header",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1_update",
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1rewrite_url"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1modify_header": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1_update": [
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1rewrite_url",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1modify_header",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1remove_header",
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1set_body"
+        ],
+        "traffic_agent.tools.registry.x\u01c1BridgeError\u01c1__init__": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1register",
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.bridge.x\u01c1Bridge\u01c1handle_line": [
+            "traffic_agent.bridge.x\u01c1Bridge\u01c1serve"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1stats_summary": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.sandbox.executor.x__check_ast": [
+            "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__init__": [
+            "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxViolation\u01c1__init__": [
+            "traffic_agent.sandbox.executor.x__check_ast"
+        ],
+        "traffic_agent.sandbox.executor.x__safe_import": [
+            "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1_CapturePrint\u01c1__call__": [
+            "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1__init__": [
+            "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1__init__"
+        ],
+        "traffic_agent.sandbox.executor.x\u01c1SandboxExecutor\u01c1run": [
+            "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1load"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1__init__": [
+            "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1load"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_request": [
+            "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_request"
+        ],
+        "traffic_agent.script.scriptlets.x\u01c1Scriptlet\u01c1on_response": [
+            "traffic_agent.script.scriptlets.x\u01c1ScriptletEngine\u01c1apply_on_response"
+        ],
+        "traffic_agent.store.x\u01c1UnknownRequest\u01c1__init__": [
+            "traffic_agent.store.x\u01c1CaptureStore\u01c1get"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1find": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1remove_header": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1rewrite_url": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ],
+        "traffic_agent.store.x\u01c1CaptureStore\u01c1set_body": [
+            "traffic_agent.tools.registry.x\u01c1ToolRegistry\u01c1dispatch"
+        ]
+    },
+    "config_fingerprint": {
+        "test_execution": "2e38e77b22c3",
+        "test_selection": "28736c4dfc98",
+        "timeout": "d3052321fdc3",
+        "type_check": "2e38e77b22c3"
+    },
+    "watched_file_hashes": {
+        "pyproject.toml": "7e6c9e3a6a22",
+        "setup.cfg": "f975372fb06a",
+        "mutants/pyproject.toml": "7e6c9e3a6a22",
+        "mutants/setup.cfg": "f975372fb06a",
+        "mutants/traffic_agent/__init__.py.meta": "8337af0c4106",
+        "mutants/traffic_agent/__init__.py.spans": "50434fb64e05",
+        "mutants/traffic_agent/bridge.py.meta": "071555bfadae",
+        "mutants/traffic_agent/bridge.py.spans": "2fe1cc69eda1",
+        "mutants/traffic_agent/risk/__init__.py.meta": "8337af0c4106",
+        "mutants/traffic_agent/risk/__init__.py.spans": "50434fb64e05",
+        "mutants/traffic_agent/risk/audit.py.meta": "a4f7918d929e",
+        "mutants/traffic_agent/risk/audit.py.spans": "b24d34b578a8",
+        "mutants/traffic_agent/risk/gate.py.meta": "fb8f31fab082",
+        "mutants/traffic_agent/risk/gate.py.spans": "9bd3c14d7228",
+        "mutants/traffic_agent/sandbox/__init__.py.meta": "8337af0c4106",
+        "mutants/traffic_agent/sandbox/__init__.py.spans": "50434fb64e05",
+        "mutants/traffic_agent/sandbox/executor.py.meta": "4b94c04ce809",
+        "mutants/traffic_agent/sandbox/executor.py.spans": "fa3404cbe167",
+        "mutants/traffic_agent/script/__init__.py.meta": "8337af0c4106",
+        "mutants/traffic_agent/script/__init__.py.spans": "50434fb64e05",
+        "mutants/traffic_agent/script/scriptlets.py.meta": "acf2b0de3772",
+        "mutants/traffic_agent/script/scriptlets.py.spans": "8f0bdfc84a8c",
+        "mutants/traffic_agent/store.py.meta": "fe4a92634d32",
+        "mutants/traffic_agent/store.py.spans": "e2d79ddf00e6",
+        "mutants/traffic_agent/tools/__init__.py.meta": "8337af0c4106",
+        "mutants/traffic_agent/tools/__init__.py.spans": "50434fb64e05",
+        "mutants/traffic_agent/tools/capture_tools.py.meta": "0a7b68f57e84",
+        "mutants/traffic_agent/tools/capture_tools.py.spans": "35f0116ed47c",
+        "mutants/traffic_agent/tools/registry.py.meta": "f3f6b72f6ae1",
+        "mutants/traffic_agent/tools/registry.py.spans": "2ff87bae9de5",
+        "mutants/traffic_agent/tools/transform_tools.py.meta": "2f2f7eb7f4dd",
+        "mutants/traffic_agent/tools/transform_tools.py.spans": "7f656682b08f"
+    },
+    "git_commit": "340f169241ce8f21eed8629d022684867b66f6a9"
+}

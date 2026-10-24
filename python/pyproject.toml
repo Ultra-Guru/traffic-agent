@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traffic-agent-bridge"
+version = "0.1.0"
+description = "Agent toolchain and risk gate for the Traffic Agent Android capture app"
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["traffic_agent*"]
