@@ -44,16 +44,71 @@ private enum class CaptureFilter(val label: String) {
 }
 
 /**
- * Parses the inline query with the same DSL the core [FilterEngine] uses:
- * "host:weibo status:4xx size>1024". Falls back to plain keyword search on
- * malformed input so typing never blocks the list.
+ * Parses the inline query with a local subset of the core filter DSL:
+ * "host:weibo status:4xx size>1024 time>500 error:true". Malformed input
+ * falls back to plain keyword search so typing never blocks the list.
  */
 private fun filterWithQuery(requests: List<CapturedRequest>, query: String): List<CapturedRequest> {
     if (query.isBlank()) return requests
-    return try {
-        com.ultra.trafficagent.analysis.FilterEngine.parse(query).filter(requests)
-    } catch (_: IllegalArgumentException) {
-        requests.filter { it.host.contains(query, true) || it.path.contains(query, true) }
+    var hostKeyword: String? = null
+    var pathKeyword: String? = null
+    var bodyKeyword: String? = null
+    val methods = mutableSetOf<String>()
+    val statusClasses = mutableSetOf<Int>()
+    val exactStatus = mutableSetOf<Int>()
+    var minBytes: Long? = null
+    var maxBytes: Long? = null
+    var minTime: Long? = null
+    var maxTime: Long? = null
+    var errorOnly = false
+    var bareWord: String? = null
+    var ok = true
+    for (token in query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }) {
+        val lower = token.lowercase()
+        try {
+            when {
+                lower.startsWith("host:") -> hostKeyword = token.substring(5)
+                lower.startsWith("path:") -> pathKeyword = token.substring(5)
+                lower.startsWith("body:") -> bodyKeyword = token.substring(5)
+                lower.startsWith("method:") -> methods += token.substring(7).uppercase().split(',')
+                lower.startsWith("status:") -> token.substring(7).split(',').forEach { part ->
+                    val p = part.trim()
+                    if (p.endsWith("xx", true)) statusClasses += p.dropLast(2).toInt()
+                    else exactStatus += p.toInt()
+                }
+                lower.startsWith("size>") -> minBytes = token.substring(5).toLong()
+                lower.startsWith("size<") -> maxBytes = token.substring(5).toLong()
+                lower.startsWith("time>") -> minTime = token.substring(5).toLong()
+                lower.startsWith("time<") -> maxTime = token.substring(5).toLong()
+                lower.startsWith("error:") && token.substring(6).equals("true", true) -> errorOnly = true
+                !token.contains(':') -> bareWord = token
+                else -> {}
+            }
+        } catch (_: NumberFormatException) {
+            ok = false
+        }
+    }
+    if (!ok || (hostKeyword == null && pathKeyword == null && bodyKeyword == null && methods.isEmpty() &&
+            statusClasses.isEmpty() && exactStatus.isEmpty() && minBytes == null && maxBytes == null &&
+            minTime == null && maxTime == null && !errorOnly && bareWord == null)
+    ) {
+        return requests.filter {
+            it.host.contains(query, true) || it.path.contains(query, true)
+        }
+    }
+    val host = hostKeyword ?: bareWord
+    return requests.filter { req ->
+        (host == null || req.host.contains(host, true)) &&
+            (pathKeyword == null || req.path.contains(pathKeyword, true)) &&
+            (bodyKeyword == null || req.responseBody.contains(bodyKeyword, true)) &&
+            (methods.isEmpty() || req.method.uppercase() in methods) &&
+            (statusClasses.isEmpty() || req.status?.div(100) in statusClasses) &&
+            (exactStatus.isEmpty() || req.status in exactStatus) &&
+            (minBytes == null || req.totalSize >= minBytes) &&
+            (maxBytes == null || req.totalSize <= maxBytes) &&
+            (minTime == null || (req.durationMs ?: 0) >= minTime) &&
+            (maxTime == null || (req.durationMs ?: 0) <= maxTime) &&
+            (!errorOnly || req.error != null || (req.status ?: 200) >= 500)
     }
 }
 

@@ -14,9 +14,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -117,6 +119,12 @@ def main() -> int:
 
     killed = 0
     survived = []
+    # Filesystems the runner uses can expose second-granular mtimes; a
+    # mutation written within the same second as the previous build leaves
+    # make thinking the object is up to date (mutant never compiled, test
+    # passes, mutant wrongly counts as survived). Each write is therefore
+    # stamped strictly into the future so the rebuild always fires.
+    stamp = time.time() + 60.0
     for index, m in enumerate(mutations, start=1):
         cpp: Path = m["file"]
         original = cpp.read_text()
@@ -125,6 +133,8 @@ def main() -> int:
             print(f"[{index}/{len(mutations)}] {cpp.name}:{m['lineno']} SKIP (marker/operator mismatch)")
             continue
         cpp.write_text(mutated_source)
+        stamp += 2.0
+        os.utime(cpp, (stamp, stamp))
         try:
             build = run(["cmake", "--build", str(build_dir), "-j2"], timeout=120)
             if build.returncode != 0:
@@ -137,6 +147,8 @@ def main() -> int:
             outcome_killed = True
         finally:
             cpp.write_text(original)
+            stamp += 2.0
+            os.utime(cpp, (stamp, stamp))
             # restore baseline binary
             run(["cmake", "--build", str(build_dir), "-j2"], timeout=120)
 
