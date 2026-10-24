@@ -58,7 +58,7 @@ Java_com_ultra_trafficagent_capture_NativeEngine_nativeFeedPacket(JNIEnv* env, j
     std::vector<uint8_t> buf(static_cast<size_t>(n));
     env->GetByteArrayRegion(pkt, 0, n, reinterpret_cast<jbyte*>(buf.data()));
     return static_cast<jint>(engine->feedPacket(buf.data(), buf.size(),
-                                                static_cast<uint64_t>(timestampMs));
+                                                static_cast<uint64_t>(timestampMs)));
 }
 
 JNIEXPORT jint JNICALL

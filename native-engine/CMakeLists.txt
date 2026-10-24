@@ -52,8 +52,7 @@ if (BUILD_TESTS)
         tests/test_tls.cpp
         tests/test_hpack.cpp
         tests/test_body.cpp
-        tests/test_multipart.cpp
-        tests/test_pcapng.cpp)
+        tests/test_multipart_pcapng.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)
     add_test(NAME engine_tests COMMAND engine_tests)
 endif()
