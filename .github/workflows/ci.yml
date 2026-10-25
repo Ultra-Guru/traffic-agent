@@ -25,7 +25,7 @@ jobs:
           ctest --test-dir native-engine/build --output-on-failure
 
       - name: Mutation testing (source-annotated mutator)
-        run: python3 scripts/native_mutate.py --min-score 90
+        run: python3 -u scripts/native_mutate.py --min-score 90
 
   python:
     name: "Python agent: pytest + mutmut"

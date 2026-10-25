@@ -82,6 +82,23 @@ def run(cmd: list[str], timeout: int = 120, cwd: Path = REPO_ROOT) -> subprocess
     )
 
 
+# Virtual-memory cap for the mutated test binary (KiB). Some mutants turn
+# bounded loops into unbounded allocation; without a cap they can exhaust
+# the runner's RAM and take the whole CI runner down with them (observed as
+# "runner has received a shutdown signal", exit 143). A mutant that blows
+# the cap dies with a bad_alloc/ENOMEM -> non-zero exit -> counted KILLED,
+# exactly like the existing timeout semantics.
+TEST_MEM_LIMIT_KIB = 2 * 1024 * 1024  # 2 GiB
+
+
+def run_capped(test_dir: Path, timeout: int) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["bash", "-c", f"ulimit -v {TEST_MEM_LIMIT_KIB}; exec ctest --test-dir '{test_dir}'"],
+        cwd=str(REPO_ROOT), timeout=timeout,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--src", default=str(REPO_ROOT / "native-engine" / "src"))
@@ -141,7 +158,7 @@ def main() -> int:
                 # does not compile -> counts as killed (mutant is not viable)
                 outcome_killed = True
             else:
-                test = run(["ctest", "--test-dir", str(build_dir)], timeout=args.timeout)
+                test = run_capped(build_dir, args.timeout)
                 outcome_killed = test.returncode != 0
         except subprocess.TimeoutExpired:
             outcome_killed = True
