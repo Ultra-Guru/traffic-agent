@@ -27,6 +27,8 @@ set(ENGINE_SOURCES
     src/body.cpp
     src/multipart.cpp
     src/pcapng.cpp
+    src/packet_build.cpp
+    src/stack.cpp
     src/engine.cpp)
 
 add_library(traffic_engine STATIC ${ENGINE_SOURCES})
@@ -52,7 +54,8 @@ if (BUILD_TESTS)
         tests/test_tls.cpp
         tests/test_hpack.cpp
         tests/test_body.cpp
-        tests/test_multipart_pcapng.cpp)
+        tests/test_multipart_pcapng.cpp
+        tests/test_stack.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)
     add_test(NAME engine_tests COMMAND engine_tests)
 endif()

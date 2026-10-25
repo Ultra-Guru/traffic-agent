@@ -25,6 +25,7 @@
 #include "traffic/engine.h"
 #include "traffic/hpack.h"
 #include "traffic/md5.h"
+#include "traffic/stack.h"
 #include "traffic/tls.h"
 
 namespace {
@@ -35,6 +36,63 @@ traffic::Engine* asEngine(jlong handle) {
 
 jstring toJString(JNIEnv* env, const std::string& s) {
     return env->NewStringUTF(s.c_str());
+}
+
+traffic::ForwardStack* asStack(jlong handle) {
+    return reinterpret_cast<traffic::ForwardStack*>(static_cast<uintptr_t>(handle));
+}
+
+// Packs the vector of emitted packets into a Java byte[][] for the Kotlin loop.
+jobjectArray toPacketArray(JNIEnv* env, const std::vector<std::vector<uint8_t>>& pkts) {
+    jclass byteClass = env->FindClass("[B");
+    jobjectArray arr = env->NewObjectArray(static_cast<jsize>(pkts.size()), byteClass, nullptr);
+    for (jsize i = 0; i < static_cast<jsize>(pkts.size()); ++i) {
+        jbyteArray elem = env->NewByteArray(static_cast<jsize>(pkts[i].size()));
+        env->SetByteArrayRegion(elem, 0, static_cast<jsize>(pkts[i].size()),
+                                reinterpret_cast<const jbyte*>(pkts[i].data()));
+        env->SetObjectArrayElement(arr, i, elem);
+        env->DeleteLocalRef(elem);
+    }
+    return arr;
+}
+
+void put16(std::vector<uint8_t>& b, uint16_t v) {
+    b.push_back(static_cast<uint8_t>(v >> 8));
+    b.push_back(static_cast<uint8_t>(v & 0xFF));
+}
+
+void put32(std::vector<uint8_t>& b, uint32_t v) {
+    b.push_back(static_cast<uint8_t>(v >> 24));
+    b.push_back(static_cast<uint8_t>((v >> 16) & 0xFF));
+    b.push_back(static_cast<uint8_t>((v >> 8) & 0xFF));
+    b.push_back(static_cast<uint8_t>(v & 0xFF));
+}
+
+traffic::FlowKey flowFrom(jint srcIp, jint srcPort, jint dstIp, jint dstPort) {
+    traffic::FlowKey k;
+    k.srcAddr = static_cast<uint32_t>(srcIp);
+    k.srcPort = static_cast<uint16_t>(srcPort & 0xFFFF);
+    k.dstAddr = static_cast<uint32_t>(dstIp);
+    k.dstPort = static_cast<uint16_t>(dstPort & 0xFFFF);
+    return k;
+}
+
+std::vector<uint8_t> jbyteToVector(JNIEnv* env, jbyteArray arr) {
+    jsize n = env->GetArrayLength(arr);
+    std::vector<uint8_t> out(static_cast<size_t>(n < 0 ? 0 : n));
+    if (n > 0) {
+        env->GetByteArrayRegion(arr, 0, n, reinterpret_cast<jbyte*>(out.data()));
+    }
+    return out;
+}
+
+jbyteArray vectorToJBytes(JNIEnv* env, const std::vector<uint8_t>& v) {
+    jbyteArray arr = env->NewByteArray(static_cast<jsize>(v.size()));
+    if (!v.empty()) {
+        env->SetByteArrayRegion(arr, 0, static_cast<jsize>(v.size()),
+                                reinterpret_cast<const jbyte*>(v.data()));
+    }
+    return arr;
 }
 
 }  // namespace
@@ -235,6 +293,155 @@ Java_com_ultra_trafficagent_capture_NativeEngine_nativeSniffMime(JNIEnv* env, jo
     std::string decStr = (dec != nullptr) ? dec : "";
     if (declared != nullptr && dec != nullptr) env->ReleaseStringUTFChars(declared, dec);
     return toJString(env, traffic::sniffMime(buf.data(), buf.size(), decStr));
+}
+
+// ---------------- TcpStackBridge (ForwardStack, 基建一) ----------------
+// The ForwardStack natives expose the user-space forwarding stack: packets
+// from the TUN fd go in, packets to write back to the TUN come out, and the
+// socket layer consumes connects/sends/closes through fixed-layout binary
+// frames (decoded by TcpStackBridge.kt on the Kotlin side).
+
+JNIEXPORT jlong JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackCreate(JNIEnv* /*env*/,
+                                                                     jobject /*thiz*/,
+                                                                     jboolean mitmEnabled,
+                                                                     jboolean blockQuic,
+                                                                     jint clientMss) {
+    traffic::StackConfig cfg;
+    cfg.mitmEnabled = mitmEnabled == JNI_TRUE;
+    cfg.blockQuic = blockQuic == JNI_TRUE;
+    if (clientMss > 0) cfg.clientMss = static_cast<uint32_t>(clientMss);
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(new traffic::ForwardStack(cfg)));
+}
+
+JNIEXPORT void JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackDestroy(JNIEnv* /*env*/,
+                                                                      jobject /*thiz*/,
+                                                                      jlong handle) {
+    auto* stack = asStack(handle);
+    if (stack != nullptr) delete stack;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnTunPacket(JNIEnv* env,
+                                                                          jobject /*thiz*/,
+                                                                          jlong handle,
+                                                                          jbyteArray pkt,
+                                                                          jlong tsMs) {
+    auto* stack = asStack(handle);
+    std::vector<std::vector<uint8_t>> out;
+    if (stack != nullptr) {
+        std::vector<uint8_t> buf = jbyteToVector(env, pkt);
+        stack->onTunPacket(buf.data(), buf.size(), static_cast<uint64_t>(tsMs), &out);
+    }
+    return toPacketArray(env, out);
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnUpstreamData(
+    JNIEnv* env, jobject /*thiz*/, jlong handle, jint srcIp, jint srcPort, jint dstIp,
+    jint dstPort, jbyteArray data, jlong tsMs) {
+    auto* stack = asStack(handle);
+    std::vector<std::vector<uint8_t>> out;
+    if (stack != nullptr) {
+        std::vector<uint8_t> buf = jbyteToVector(env, data);
+        stack->onUpstreamData(flowFrom(srcIp, srcPort, dstIp, dstPort), buf.data(), buf.size(),
+                              static_cast<uint64_t>(tsMs), &out);
+    }
+    return toPacketArray(env, out);
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnUpstreamClosed(
+    JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint srcIp, jint srcPort, jint dstIp,
+    jint dstPort, jlong tsMs) {
+    auto* stack = asStack(handle);
+    std::vector<std::vector<uint8_t>> out;
+    if (stack != nullptr) {
+        stack->onUpstreamClosed(flowFrom(srcIp, srcPort, dstIp, dstPort),
+                                static_cast<uint64_t>(tsMs), &out);
+    }
+    return toPacketArray(env, out);
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackSweep(JNIEnv* /*env*/,
+                                                                    jobject /*thiz*/,
+                                                                    jlong handle, jlong nowMs) {
+    auto* stack = asStack(handle);
+    std::vector<std::vector<uint8_t>> out;
+    if (stack != nullptr) {
+        stack->sweep(static_cast<uint64_t>(nowMs), &out);
+    }
+    return toPacketArray(env, out);
+}
+
+JNIEXPORT jbyteArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackTakeConnects(JNIEnv* env,
+                                                                           jobject /*thiz*/,
+                                                                           jlong handle) {
+    std::vector<uint8_t> frame;
+    auto* stack = asStack(handle);
+    if (stack != nullptr) {
+        // [1B isUdp][srcIp][srcPort][dstIp][dstPort][effDstIp][effDstPort]
+        for (const auto& c : stack->takeConnects()) {
+            frame.push_back(c.isUdp ? 1 : 0);
+            put32(frame, c.original.srcAddr);
+            put16(frame, c.original.srcPort);
+            put32(frame, c.original.dstAddr);
+            put16(frame, c.original.dstPort);
+            put32(frame, c.effective.dstAddr);
+            put16(frame, c.effective.dstPort);
+        }
+    }
+    return vectorToJBytes(env, frame);
+}
+
+JNIEXPORT jbyteArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackTakeSends(JNIEnv* env,
+                                                                        jobject /*thiz*/,
+                                                                        jlong handle) {
+    std::vector<uint8_t> frame;
+    auto* stack = asStack(handle);
+    if (stack != nullptr) {
+        // [srcIp][srcPort][dstIp][dstPort][4B len][data]
+        for (const auto& s : stack->takeSends()) {
+            put32(frame, s.flow.srcAddr);
+            put16(frame, s.flow.srcPort);
+            put32(frame, s.flow.dstAddr);
+            put16(frame, s.flow.dstPort);
+            put32(frame, static_cast<uint32_t>(s.data.size()));
+            frame.insert(frame.end(), s.data.begin(), s.data.end());
+        }
+    }
+    return vectorToJBytes(env, frame);
+}
+
+JNIEXPORT jbyteArray JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackTakeCloses(JNIEnv* env,
+                                                                         jobject /*thiz*/,
+                                                                         jlong handle) {
+    std::vector<uint8_t> frame;
+    auto* stack = asStack(handle);
+    if (stack != nullptr) {
+        // [srcIp][srcPort][dstIp][dstPort]
+        for (const auto& c : stack->takeCloses()) {
+            put32(frame, c.flow.srcAddr);
+            put16(frame, c.flow.srcPort);
+            put32(frame, c.flow.dstAddr);
+            put16(frame, c.flow.dstPort);
+        }
+    }
+    return vectorToJBytes(env, frame);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackFlowCount(JNIEnv* /*env*/,
+                                                                        jobject /*thiz*/,
+                                                                        jlong handle) {
+    auto* stack = asStack(handle);
+    if (stack == nullptr) return -1;
+    return static_cast<jint>(stack->flowCount());
 }
 
 }  // extern "C"
