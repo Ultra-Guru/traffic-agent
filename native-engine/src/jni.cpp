@@ -353,7 +353,7 @@ Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnUpstreamData(
 
 JNIEXPORT jobjectArray JNICALL
 Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnUpstreamClosed(
-    JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint srcIp, jint srcPort, jint dstIp,
+    JNIEnv* env, jobject /*thiz*/, jlong handle, jint srcIp, jint srcPort, jint dstIp,
     jint dstPort, jlong tsMs) {
     auto* stack = asStack(handle);
     std::vector<std::vector<uint8_t>> out;
@@ -365,9 +365,9 @@ Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackOnUpstreamClosed(
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackSweep(JNIEnv* /*env*/,
-                                                                    jobject /*thiz*/,
-                                                                    jlong handle, jlong nowMs) {
+Java_com_ultra_trafficagent_capture_TcpStackBridge_nativeStackSweep(JNIEnv* env,
+                                                                   jobject /*thiz*/,
+                                                                   jlong handle, jlong nowMs) {
     auto* stack = asStack(handle);
     std::vector<std::vector<uint8_t>> out;
     if (stack != nullptr) {
