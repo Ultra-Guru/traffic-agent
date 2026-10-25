@@ -135,6 +135,80 @@ class SessionStoreTest {
     }
 
     @Test
+    fun `rotation shifts history by exact index names`(@TempDir dir: File) {
+        val store = SessionStore(
+            capacity = 100,
+            persistenceDir = dir,
+            rotateBytes = 200,
+            maxFiles = 3,
+        )
+        for (i in 1L..30L) store.add(session(i))
+        // Exactly: active + two history slots; index 1 holds the newest history.
+        assertTrue(dir.resolve("sessions.1.jsonl").exists(), "sessions.1.jsonl must exist")
+        assertTrue(dir.resolve("sessions.2.jsonl").exists(), "sessions.2.jsonl must exist")
+        assertFalse(dir.resolve("sessions.3.jsonl").exists(), "third history slot must be dropped")
+        val hist1 = dir.resolve("sessions.1.jsonl").readLines()
+        val hist2 = dir.resolve("sessions.2.jsonl").readLines()
+        assertTrue(hist1.isNotEmpty() && hist2.isNotEmpty())
+        // Every line must decode: sessions were persisted through the codec.
+        assertTrue(hist1.all { SessionCodec.decode(it) != null })
+        // Index 1 must be strictly newer history than index 2 (rotation order).
+        val maxId1 = hist1.maxOf { SessionCodec.decode(it)!!.id }
+        val maxId2 = hist2.maxOf { SessionCodec.decode(it)!!.id }
+        assertTrue(maxId1 > maxId2, "sessions.1 (max $maxId1) must be newer than sessions.2 (max $maxId2)")
+    }
+
+    @Test
+    fun `add returns the growing store size`(@TempDir dir: File) {
+        val store = SessionStore(capacity = 10, persistenceDir = dir)
+        assertEquals(1, store.add(session(1)))
+        assertEquals(2, store.add(session(2)))
+        assertEquals(3, store.add(session(3)))
+    }
+
+    @Test
+    fun `clear wipes rotated history files too`(@TempDir dir: File) {
+        val store = SessionStore(
+            capacity = 100,
+            persistenceDir = dir,
+            rotateBytes = 200,
+            maxFiles = 4,
+        )
+        for (i in 1L..30L) store.add(session(i))
+        assertTrue(dir.resolve("sessions.1.jsonl").exists(), "precondition: rotated files exist")
+        assertTrue(dir.resolve("sessions.2.jsonl").exists())
+        store.clear()
+        assertEquals(0, store.count())
+        assertEquals(0, dir.listFiles { f -> f.name.startsWith("sessions") }!!.size,
+            "all rotated files must be removed")
+    }
+
+    @Test
+    fun `reload trims disk content down to capacity`(@TempDir dir: File) {
+        val writer = SessionStore(capacity = 100, persistenceDir = dir)
+        for (i in 1L..10L) writer.add(session(i))
+        val reloaded = SessionStore(capacity = 4, persistenceDir = dir)
+        assertEquals(4, reloaded.count(), "load must trim to capacity")
+        // The newest four survive; older ones were dropped.
+        assertEquals(listOf(10L, 9L, 8L, 7L), reloaded.all().map { it.id })
+        assertNull(reloaded.get(6))
+    }
+
+    @Test
+    fun `store without persistence dir works purely in memory`() {
+        val store = SessionStore(capacity = 5, persistenceDir = null)
+        assertEquals(1, store.add(session(1)))
+        assertEquals(2, store.add(session(2)))
+        assertEquals(2, store.count())
+        assertEquals(2L, store.get(2)!!.id)
+        val stats = store.stats()
+        assertEquals(2, stats.count)
+        assertEquals(3L, stats.bytesUp)
+        store.clear()
+        assertEquals(0, store.count())
+    }
+
+    @Test
     fun `clear wipes memory and disk`(@TempDir dir: File) {
         val store = SessionStore(capacity = 10, persistenceDir = dir)
         store.add(session(1))

@@ -136,4 +136,31 @@ class SessionCodecTest {
         assertEquals(Protocol.UNKNOWN, decoded.protocol)
         assertNull(decoded.status)
     }
+
+    @Test
+    fun `escape emits unicode form for control chars below 0x20`() {
+        // 0x1f is escaped as \\u001f; a space (0x20) stays literal.
+        assertEquals("\"\\u001f\"", SessionCodec.escape("\u001f"))
+        assertEquals("\" \"", SessionCodec.escape(" "))
+        assertEquals("\"\\u0001\"", SessionCodec.escape("\u0001"))
+    }
+
+    @Test
+    fun `round trips a body holding a raw control byte`() {
+        val original = session(body = "a\u001fb")
+        assertEquals(original, SessionCodec.decode(SessionCodec.encode(original)))
+    }
+
+    @Test
+    fun `decode rejects object-open without object-close`() {
+        assertNull(SessionCodec.decode("{"))
+        assertNull(SessionCodec.decode("{invalid"))
+    }
+
+    @Test
+    fun `encode renders null status and uid as json null`() {
+        val encoded = SessionCodec.encode(session(status = null).copy(appUid = null))
+        assertTrue(encoded.contains("\"status\":null"))
+        assertTrue(encoded.contains("\"uid\":null"))
+    }
 }

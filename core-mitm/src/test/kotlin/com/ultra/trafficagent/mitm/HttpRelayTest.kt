@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
@@ -186,5 +187,172 @@ class HttpRelayTest {
         assertEquals(body, captured.requestBody)
         assertEquals(body, captured.responseBody)
         assertEquals("application/x-www-form-urlencoded", captured.requestHeaders["Content-Type"])
+    }
+
+    // ---------------- mutation-killer tests: framing edge cases ----------------
+
+    /** Loopback origin that answers with fully hand-crafted raw bytes. */
+    private fun rawOrigin(vararg responses: ByteArray): Pair<Int, () -> Unit> {
+        val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))
+        val port = server.localPort
+        val done = AtomicBoolean(false)
+        Thread {
+            try {
+                server.soTimeout = 10_000
+                val socket = server.accept()
+                // drain the request head + body before responding
+                socket.getInputStream().read(ByteArray(8192))
+                val out = socket.getOutputStream()
+                for (r in responses) out.write(r)
+                out.flush()
+                socket.close()
+            } catch (_: java.io.IOException) {
+            } finally {
+                done.set(true)
+                server.close()
+            }
+        }.start()
+        return port to { server.close() }
+    }
+
+    private fun relayToPort(port: Int, clientBytes: ByteArray): Pair<HttpRelay, ByteArrayOutputStream> {
+        val clientOut = ByteArrayOutputStream()
+        val relay = HttpRelay(
+            clientIn = ByteArrayInputStream(clientBytes),
+            clientOut = clientOut,
+            originalDstIp = "10.0.0.1",
+            originalDstPort = port,
+            openUpstream = { _, _ -> Socket("127.0.0.1", port) },
+            wrapUpstreamTls = { plain, _, _ -> plain },
+            now = { fixedNow },
+        )
+        return relay to clientOut
+    }
+
+    @Test
+    fun `malformed status line from upstream throws`() {
+        val (port, close) = rawOrigin("GARBAGE\r\n\r\n".toByteArray())
+        try {
+            val (relay, _) = relayToPort(port, get("/hello"))
+            assertThrows<java.io.IOException> { relay.exchange(10L) }
+        } finally {
+            close()
+        }
+    }
+
+    @Test
+    fun `truncated content length body throws`() {
+        val (port, close) = rawOrigin(
+            "HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nonly-ten!!".toByteArray(),
+        )
+        try {
+            val (relay, _) = relayToPort(port, get("/hello"))
+            assertThrows<java.io.IOException> { relay.exchange(11L) }
+        } finally {
+            close()
+        }
+    }
+
+    @Test
+    fun `chunked with extensions and empty chunks decodes`() {
+        val chunked = ("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n" +
+            "5;ext=1\r\nhello\r\n" +
+            "0\r\n\r\n").toByteArray()
+        val (port, close) = rawOrigin(chunked)
+        try {
+            val (relay, _) = relayToPort(port, get("/hello"))
+            val result = relay.exchange(12L)
+            assertEquals("hello", result!!.captured.responseBody)
+        } finally {
+            close()
+        }
+    }
+
+    @Test
+    fun `response without reason phrase parses`() {
+        val (port, close) = rawOrigin("HTTP/1.1 200\r\nContent-Length: 2\r\n\r\nhi".toByteArray())
+        try {
+            val (relay, clientOut) = relayToPort(port, get("/hello"))
+            val result = relay.exchange(13L)
+            assertEquals(200, result!!.captured.status)
+            assertEquals("hi", result.captured.responseBody)
+            val toClient = clientOut.toString(StandardCharsets.ISO_8859_1.name())
+            assertTrue(toClient.startsWith("HTTP/1.1 200\r\n"), "no reason: ${toClient.take(20)}")
+        } finally {
+            close()
+        }
+    }
+
+    @Test
+    fun `empty host header falls back to original ip`() {
+        val request = "GET /hello HTTP/1.1\r\nHost: \r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+        val (relay, _) = relay(request)
+        val result = relay.exchange(14L)
+        assertEquals("10.0.0.1", result!!.captured.host)
+    }
+
+    @Test
+    fun `host header with port strips the port`() {
+        val request = "GET /hello HTTP/1.1\r\nHost: localhost:9999\r\n\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1)
+        val (relay, _) = relay(request)
+        val result = relay.exchange(15L)
+        assertEquals("localhost", result!!.captured.host)
+    }
+
+    @Test
+    fun `upstream response headers surface in capture`() {
+        origin.removeContext("/hello")
+        origin.createContext("/hello") { exchange ->
+            exchange.responseHeaders.add("X-Strange-Value", "present")
+            exchange.responseHeaders.add("Content-Type", "text/plain")
+            val body = "ok".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        val (relay, _) = relay(get("/hello"))
+        val result = relay.exchange(16L)
+        val headers = result!!.captured.responseHeaders
+        val strange = headers.entries.firstOrNull { it.key.equals("X-Strange-Value", ignoreCase = true) }?.value
+        assertEquals("present", strange, "headers: $headers")
+        assertTrue(headers.keys.any { it.equals("Content-Type", ignoreCase = true) })
+    }
+
+    @Test
+    fun `malformed request line throws`() {
+        val (relay, _) = relay("GARBAGE\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1))
+        assertThrows<java.io.IOException> { relay.exchange(17L) }
+    }
+
+    @Test
+    fun `oversized request head throws`() {
+        val huge = StringBuilder("GET /hello HTTP/1.1\r\nHost: localhost\r\n")
+        while (huge.length < 40_000) huge.append("X-Pad: 0123456789\r\n")
+        huge.append("\r\n")
+        val (relay, _) = relay(huge.toString().toByteArray(StandardCharsets.ISO_8859_1))
+        assertThrows<java.io.IOException> { relay.exchange(18L) }
+    }
+
+    @Test
+    fun `bytes down equals the full wire response length`() {
+        // head = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n" (33 bytes) + blank CRLF (4) + body (2) = 39
+        val (port, close) = rawOrigin("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhi".toByteArray())
+        try {
+            val (relay, _) = relayToPort(port, get("/hello"))
+            val result = relay.exchange(19L)
+            // head = status line(17) + "Content-Length: 2\r\n"(19) = 36; total = 36 + 4 + body(2) = 42
+
+        assertEquals(42L, result!!.captured.bytesDown)
+            assertEquals("hi", result.captured.responseBody)
+        } finally {
+            close()
+        }
+    }
+
+    @Test
+    fun `relay exposes its original destination fields`() {
+        val (relay, _) = relay(get("/hello"))
+        assertEquals("10.0.0.1", relay.originalDstIp)
+        assertEquals(originPort, relay.originalDstPort)
     }
 }

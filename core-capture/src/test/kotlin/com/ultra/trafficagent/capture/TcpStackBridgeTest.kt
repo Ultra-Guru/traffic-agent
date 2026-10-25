@@ -128,4 +128,14 @@ class TcpStackBridgeTest {
             StackFlow.parseIp("1.2.3.999")
         }
     }
+
+    @Test
+    fun `stack flow exposes raw getters and ip text`() {
+        val flow = StackFlow(0x0A000001, 40000, 0x0A000002, 443)
+        assertEquals(0x0A000001, flow.srcIp)
+        assertEquals(40000, flow.srcPort)
+        assertEquals(0x0A000002, flow.dstIp)
+        assertEquals(443, flow.dstPort)
+        assertEquals("10.0.0.2", flow.dstIpText)
+    }
 }

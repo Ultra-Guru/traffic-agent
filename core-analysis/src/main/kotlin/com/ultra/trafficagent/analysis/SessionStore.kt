@@ -98,7 +98,10 @@ class SessionStore(
             return
         }
         // Total files stay at maxFiles: (maxFiles - 1) rotated + 1 active.
-        // sessions.1.jsonl <- active, older indexes shift up, oldest falls off.
+        // Order matters: drop the oldest slot BEFORE shifting, otherwise the
+        // just-shifted file would be deleted instead of the stale one.
+        val oldest = d.resolve(indexedName(maxFiles - 1))
+        if (oldest.exists()) oldest.delete()
         for (n in (maxFiles - 2) downTo 1) {
             val src = d.resolve(indexedName(n))
             val dst = d.resolve(indexedName(n + 1))
@@ -106,8 +109,6 @@ class SessionStore(
                 if (!src.renameTo(dst)) src.delete()
             }
         }
-        val oldest = d.resolve(indexedName(maxFiles - 1))
-        if (oldest.exists()) oldest.delete()
         val active = activeFile ?: return
         if (active.exists()) {
             if (!active.renameTo(d.resolve(indexedName(1)))) active.delete()
