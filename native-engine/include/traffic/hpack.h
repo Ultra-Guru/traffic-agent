@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,25 @@ enum class HpackStatus {
 // receives the number of input bytes used.
 HpackStatus decodeHpack(const uint8_t* data, size_t len, std::vector<HpackHeader>* out,
                         size_t* consumed);
+
+// Stateful decoding context: one instance per connection direction. Real
+// encoders reference dynamic-table entries inserted by *earlier* blocks on
+// the same direction, so blocks cannot be decoded in isolation. The dynamic
+// table persists across decode() calls.
+class HpackDecoder {
+public:
+    HpackDecoder();
+    ~HpackDecoder();
+    HpackDecoder(HpackDecoder&&) noexcept;
+    HpackDecoder(const HpackDecoder&) = delete;
+    HpackDecoder& operator=(const HpackDecoder&) = delete;
+
+    HpackStatus decode(const uint8_t* data, size_t len, std::vector<HpackHeader>* out);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 // Encodes headers as literal-without-indexing, plain (non-Huffman) strings:
 // simple and always decodable, used for replay/mock construction.

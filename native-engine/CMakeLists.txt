@@ -19,6 +19,7 @@ set(ENGINE_SOURCES
     src/http1.cpp
     src/http1flow.cpp
     src/http2.cpp
+    src/http2flow.cpp
     src/ws.cpp
     src/quic.cpp
     src/md5.cpp
@@ -28,6 +29,7 @@ set(ENGINE_SOURCES
     src/multipart.cpp
     src/pcapng.cpp
     src/pcap_write.cpp
+    src/pcapng_write.cpp
     src/export_lines.cpp
     src/packet_build.cpp
     src/stack.cpp
@@ -50,7 +52,9 @@ if (BUILD_TESTS)
         tests/test_sni.cpp
         tests/test_http1.cpp
         tests/test_http2.cpp
+        tests/test_http2flow.cpp
         tests/test_ws_quic.cpp
+        tests/test_ws_tunnel.cpp
         tests/test_engine.cpp
         tests/test_md5.cpp
         tests/test_tls.cpp
@@ -58,6 +62,7 @@ if (BUILD_TESTS)
         tests/test_body.cpp
         tests/test_multipart_pcapng.cpp
         tests/test_pcap_write.cpp
+        tests/test_pcapng_write.cpp
         tests/test_export_lines.cpp
         tests/test_stack.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)

@@ -10,11 +10,25 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# ---------------------------------------------------------------------------
+# Ten quality gates. Every pull request must pass all of them before merge:
+#   1. native-tests        C++ engine unit tests (cmake + ctest)
+#   2. native-mutation     C++ source-annotated mutation gate (>= 90)
+#   3. python-tests        Python sidecar unit tests (pytest)
+#   4. python-mutation     mutmut gate for the Python sidecar (>= 70)
+#   5. kotlin-unittests    JVM unit tests for all core modules
+#   6. kotlin-mutation     PIT mutation gate for the core modules (>= 65)
+#   7. android-unit        :app unit tests (testDebugUnitTest)
+#   8. android-lint        :app lintDebug
+#   9. android-assemble    Full debug APK (NDK cross-compile included)
+#  10. repo-hygiene        Whitespace / tab / EOF-newline / file-size checks
+# ---------------------------------------------------------------------------
+
 jobs:
-  native:
-    name: "Native engine: C++ tests + mutation"
+  native-tests:
+    name: "1/10 native: C++ unit tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -24,11 +38,36 @@ jobs:
           cmake --build native-engine/build -j"$(nproc)"
           ctest --test-dir native-engine/build --output-on-failure
 
+  native-mutation:
+    name: "2/10 native: mutation gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Mutation testing (source-annotated mutator)
         run: python3 -u scripts/native_mutate.py --min-score 90
 
-  python:
-    name: "Python agent: pytest + mutmut"
+  python-tests:
+    name: "3/10 python: unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: pip install pytest
+
+      - name: Unit tests
+        working-directory: python
+        run: python -m pytest tests -q
+
+  python-mutation:
+    name: "4/10 python: mutation gate"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -39,11 +78,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install tooling
-        run: pip install pytest mutmut==3.8.0
-
-      - name: Unit tests
-        working-directory: python
-        run: python -m pytest tests -q
+        run: pip install mutmut==3.8.0
 
       - name: Mutation testing (mutmut)
         working-directory: python
@@ -52,10 +87,10 @@ jobs:
       - name: Mutation gate
         run: python3 scripts/mutmut_gate.py --min-score 70
 
-  kotlin:
-    name: "Kotlin core: JUnit + PIT"
+  kotlin-unittests:
+    name: "5/10 kotlin: core unit tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -67,10 +102,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests (JVM core modules)
-        run: ./gradlew -Pta.skipAndroid allUnitTests
+        run: ./gradlew -Pta.skipAndroid allUnitTests --stacktrace
+
+  kotlin-mutation:
+    name: "6/10 kotlin: PIT mutation gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Mutation testing (PIT / pitest)
-        run: ./gradlew -Pta.skipAndroid allPitest
+        run: ./gradlew -Pta.skipAndroid allPitest --stacktrace
 
       - name: Mutation gate
         run: python3 scripts/pitest_gate.py --min-score 65
@@ -82,8 +131,59 @@ jobs:
           name: pitest-reports
           path: core-*/build/reports/pitest/**
 
-  android:
-    name: "Android app: assembleDebug (M3 + NDK)"
+  android-unit:
+    name: "7/10 android: app unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept SDK licenses (NDK/CMake auto-provisioning)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: App unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+  android-lint:
+    name: "8/10 android: lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept SDK licenses (NDK/CMake auto-provisioning)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+
+  android-assemble:
+    name: "9/10 android: assemble debug APK"
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -98,11 +198,24 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Accept SDK licenses (NDK/CMake auto-provisioning)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: traffic-agent-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+  repo-hygiene:
+    name: "10/10 repo: hygiene checks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static hygiene gate
+        run: bash scripts/ci-static-checks.sh

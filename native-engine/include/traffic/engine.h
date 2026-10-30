@@ -9,8 +9,10 @@
 
 #include "http1.h"
 #include "http1flow.h"
+#include "http2flow.h"
 #include "ip.h"
 #include "tcp.h"
+#include "ws.h"
 
 namespace traffic {
 
@@ -42,7 +44,10 @@ struct EngineEvent {
         // --- extensions (Task 2-a) ---
         Http2HeadersDetected,  // text: first decoded HPACK headers
         TlsJa3Detected,         // text: "sni|ja3md5"
-        DnsMessageParsed        // text: "example.com A 1.2.3.4" / "example.com?"
+        DnsMessageParsed,       // text: "example.com A 1.2.3.4" / "example.com?"
+        // --- extensions (engine deep dive) ---
+        GrpcMessageDetected,    // text: "grpc <len>B <preview>", numeric: stream id
+        WsMessageDetected       // text: "c>s text 12B <preview>" (added with WS wiring)
     };
     Kind kind = EngineEvent::Kind::TcpReset;
     FlowKey flow;
@@ -63,6 +68,7 @@ struct HttpExchangeRecord {
     std::vector<uint8_t> responseDecoded;  // gzip/deflate decoded when possible
     std::string responseMime;
     bool truncated = false;
+    std::string protocol = "HTTP1";  // "HTTP1" or "HTTP2" (stream-level capture)
 };
 
 // TCP stream reassembly: dedup of retransmissions, out-of-order buffering,
@@ -135,14 +141,20 @@ private:
         Http1FlowParser resp{Http1FlowParser::Mode::Responses};
         std::vector<Http1Message> pendingRequests;  // FIFO awaiting responses
 
-        // HTTP/2 per-direction state (index 0 = client, 1 = server).
+        // Websocket tunnel state after a 101 Switching Protocols.
+        struct WsState {
+            bool active = false;
+            WsMessageAssembler c2s;  // client -> server direction
+            WsMessageAssembler s2c;  // server -> client direction
+        };
+        WsState ws;
+
+        // HTTP/2 per-direction raw frame buffer (index 0 = client, 1 = server).
         struct H2Dir {
             std::vector<uint8_t> buf;
-            bool inHeaders = false;
-            uint32_t streamId = 0;
-            std::vector<uint8_t> block;
         };
         H2Dir h2[2];
+        H2StreamTracker h2Streams;  // stream-level reassembly + gRPC framing
         std::map<uint32_t, uint64_t> h2StreamBytes;  // DATA bytes per stream
         size_t h2PrefaceConsumed = 0;                // client preface skip state
 
@@ -154,11 +166,15 @@ private:
     Conversation* conversationFor(const FlowKey& flow);
     void classify(const FlowKey& flow, const uint8_t* data, size_t len, uint64_t ts);
     void feedHttp(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
+    void feedWs(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
     void feedTls(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
     void feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts);
     void drainParserMessages(Conversation& c, uint64_t ts);
     void emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t* block, size_t len,
                           uint64_t ts);
+    void emitHttp2HeaderList(Conversation& c, uint32_t streamId,
+                             const std::vector<HpackHeader>& headers, uint64_t ts);
+    void emitH2Exchange(Conversation& c, const H2StreamRecord& rec, uint64_t ts);
     void handleDns(const FlowKey& flow, uint32_t srcPort, uint32_t dstPort, const uint8_t* payload,
                   size_t len, uint64_t ts);
 

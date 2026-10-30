@@ -57,6 +57,20 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val importFilePicker =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                viewModel.importCaptureFile(uri)
+            }
+        }
+
+    private val rulepackPicker =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                viewModel.importRulepack(uri)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -66,7 +80,12 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            TrafficAgentApp(viewModel) { intent -> vpnPermission.launch(intent) }
+            TrafficAgentApp(
+                viewModel = viewModel,
+                requestVpnPermission = { intent -> vpnPermission.launch(intent) },
+                onImportFile = { importFilePicker.launch("*/*") },
+                onImportRulepack = { rulepackPicker.launch("*/*") },
+            )
         }
     }
 }
@@ -84,6 +103,8 @@ private val tabs = listOf(
 fun TrafficAgentApp(
     viewModel: CaptureViewModel,
     requestVpnPermission: (Intent) -> Unit,
+    onImportFile: () -> Unit = {},
+    onImportRulepack: () -> Unit = {},
 ) {
     var dynamicColor by rememberSaveable { mutableStateOf(true) }
 
@@ -95,12 +116,16 @@ fun TrafficAgentApp(
         val stats by viewModel.stats.collectAsState()
         val mitmEnabled by viewModel.mitmEnabled.collectAsState()
         val recordPcap by viewModel.recordPcap.collectAsState()
+        val pcapngFormat by viewModel.pcapngFormat.collectAsState()
+        val lastImport by viewModel.lastImport.collectAsState()
         val exportFile by viewModel.exportFile.collectAsState()
         val rules by RuleStore.rules.collectAsState()
+        val ruleHits by RuleStore.hits.collectAsState()
 
-        // First-run seed so the Rules screen demonstrates real, working
-        // rewrites (block-ads / auth injection) once MITM is enabled.
-        LaunchedEffect(Unit) { RuleStore.seed(DemoData.initialRules) }
+        // Persisted rulepack wins over the first-run seed (RuleStore.attach
+        // loads <filesDir>/rules.tarule.json when it exists).
+        val appContext = androidx.compose.ui.platform.LocalContext.current
+        LaunchedEffect(Unit) { RuleStore.attach(appContext.filesDir, DemoData.initialRules) }
 
         // Auto-share whenever an export lands.
         val context = LocalContext.current
@@ -165,17 +190,25 @@ fun TrafficAgentApp(
                     onExportCsv = viewModel::exportCsv,
                     onExportMarkdown = viewModel::exportMarkdown,
                     onExportPcap = viewModel::exportPcap,
+                    onImportFile = onImportFile,
+                    importMessage = lastImport?.let { res ->
+                        res.error ?: "Imported ${res.packets} packets, " +
+                            "${res.requests} request(s)"
+                    },
                     pcapAvailable = stats?.pcapPath != null,
                     modifier = modifier,
                 )
                 selectedTab == 1 -> RulesScreen(
                     rules = rules,
+                    hitCounts = ruleHits,
                     onToggleRule = { id ->
                         val rule = rules.firstOrNull { it.id == id }
                         if (rule != null) RuleStore.toggle(id, !rule.enabled)
                     },
                     onDeleteRule = { id -> RuleStore.remove(id) },
                     onAddRule = { rule -> RuleStore.add(rule) },
+                    onExportRulepack = viewModel::exportRulepack,
+                    onImportRulepack = onImportRulepack,
                     modifier = modifier,
                 )
                 selectedTab == 2 -> AgentScreen(modifier = modifier)
@@ -186,6 +219,8 @@ fun TrafficAgentApp(
                     onMitmChange = { viewModel.mitmEnabled.value = it },
                     recordPcap = recordPcap,
                     onRecordPcapChange = { viewModel.recordPcap.value = it },
+                    pcapngFormat = pcapngFormat,
+                    onPcapngFormatChange = { viewModel.pcapngFormat.value = it },
                     onExportCa = viewModel::exportCaCertificate,
                     modifier = modifier,
                 )

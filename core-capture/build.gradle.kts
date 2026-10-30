@@ -36,7 +36,8 @@ pitest {
         "com.ultra.trafficagent.capture.TcpStackBridge",
         "com.ultra.trafficagent.capture.PcapWriterBridge",
         "com.ultra.trafficagent.capture.PcapSessionFile",
-        "com.ultra.trafficagent.capture.JdkSocketOpener",
+        "com.ultra.trafficagent.capture.JdkSocketOpener*",
+        "com.ultra.trafficagent.capture.PcapNgSessionFile",
         "com.ultra.trafficagent.capture.VpnOrchestrator*",
     ))
     mutators.set(listOf("DEFAULTS"))

@@ -29,6 +29,7 @@
 #include "traffic/hpack.h"
 #include "traffic/md5.h"
 #include "traffic/pcap_write.h"
+#include "traffic/pcapng_write.h"
 #include "traffic/stack.h"
 #include "traffic/tls.h"
 
@@ -48,6 +49,10 @@ traffic::ForwardStack* asStack(jlong handle) {
 
 traffic::PcapWriter* asPcapWriter(jlong handle) {
     return reinterpret_cast<traffic::PcapWriter*>(static_cast<uintptr_t>(handle));
+}
+
+traffic::PcapNgWriter* asPcapNgWriter(jlong handle) {
+    return reinterpret_cast<traffic::PcapNgWriter*>(static_cast<uintptr_t>(handle));
 }
 
 // Exchange ids are only required to be unique within one process; the app
@@ -244,6 +249,51 @@ JNIEXPORT void JNICALL
 Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeClose(JNIEnv* /*env*/, jobject /*thiz*/,
                                                                     jlong handle) {
     auto* writer = asPcapWriter(handle);
+    if (writer != nullptr) delete writer;
+}
+
+// ---- PcapWriterBridge pcapng surface (PCAPNG 导出) ----
+
+JNIEXPORT jlong JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeNgOpen(JNIEnv* env,
+                                                                     jobject /*thiz*/,
+                                                                     jstring path, jint snaplen,
+                                                                     jint linkType) {
+    const char* utf = (path != nullptr) ? env->GetStringUTFChars(path, nullptr) : nullptr;
+    if (utf == nullptr) return 0;
+    std::string pathStr = utf;
+    env->ReleaseStringUTFChars(path, utf);
+    auto writer = traffic::PcapNgWriter::open(
+        pathStr, static_cast<uint32_t>(snaplen), static_cast<uint16_t>(linkType));
+    if (writer == nullptr) return 0;
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(writer.release()));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeNgWritePacket(JNIEnv* env,
+                                                                            jobject /*thiz*/,
+                                                                            jlong handle,
+                                                                            jbyteArray pkt,
+                                                                            jlong tsMs) {
+    auto* writer = asPcapNgWriter(handle);
+    if (writer == nullptr) return -1;
+    std::vector<uint8_t> buf = jbyteToVector(env, pkt);
+    return static_cast<jint>(writer->writePacket(buf.data(), buf.size(),
+                                                 static_cast<uint64_t>(tsMs)));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeNgFlush(JNIEnv* /*env*/, jobject /*thiz*/,
+                                                                      jlong handle) {
+    auto* writer = asPcapNgWriter(handle);
+    if (writer == nullptr) return -1;
+    return static_cast<jint>(writer->flush());
+}
+
+JNIEXPORT void JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeNgClose(JNIEnv* /*env*/, jobject /*thiz*/,
+                                                                     jlong handle) {
+    auto* writer = asPcapNgWriter(handle);
     if (writer != nullptr) delete writer;
 }
 

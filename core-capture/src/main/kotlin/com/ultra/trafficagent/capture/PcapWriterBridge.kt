@@ -43,6 +43,20 @@ object PcapWriterBridge {
 
     /** Frees the writer; idempotent. */
     external fun nativeClose(handle: Long)
+
+    // ---- pcapng surface (same handle protocol, PcapNgWriter underneath) ----
+
+    /** Opens (truncating) [path] as pcapng; returns 0 on failure. */
+    external fun nativeNgOpen(path: String, snaplen: Int, linkType: Int): Long
+
+    /** Appends one Enhanced Packet Block; status codes mirror [nativeWritePacket]. */
+    external fun nativeNgWritePacket(handle: Long, packet: ByteArray, timestampMs: Long): Int
+
+    /** Flushes buffered output; same status codes as [nativeWritePacket]. */
+    external fun nativeNgFlush(handle: Long): Int
+
+    /** Frees the pcapng writer; idempotent. */
+    external fun nativeNgClose(handle: Long)
 }
 
 /**
@@ -101,6 +115,67 @@ class PcapSessionFile(private val path: String) : AutoCloseable {
         if (h == 0L) return
         try {
             PcapWriterBridge.nativeClose(h)
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+}
+
+/**
+ * Session-scoped PCAPNG file: the modern block-based sibling of
+ * [PcapSessionFile]. Microsecond timestamps, an if_tsresol-declared
+ * interface and Enhanced Packet Blocks; Wireshark reads it natively and
+ * our own [PcapNgFileReader] parses it back for re-import.
+ */
+class PcapNgSessionFile(private val path: String) : AutoCloseable {
+
+    @Volatile
+    private var handle: Long = 0
+
+    @Volatile
+    var packetsWritten: Long = 0
+        private set
+
+    @Synchronized
+    fun start(snaplen: Int = 0xFFFF, linkType: Int = PcapWriterBridge.LINK_TYPE_RAW): Boolean {
+        if (handle != 0L) return true
+        return try {
+            PcapWriterBridge.ensureLoaded()
+            handle = PcapWriterBridge.nativeNgOpen(path, snaplen, linkType)
+            handle != 0L
+        } catch (_: UnsatisfiedLinkError) {
+            false
+        }
+    }
+
+    /** Records one raw packet; failures are swallowed (capture continuity wins). */
+    @Synchronized
+    fun record(packet: ByteArray, timestampMs: Long) {
+        val h = handle
+        if (h == 0L) return
+        try {
+            if (PcapWriterBridge.nativeNgWritePacket(h, packet, timestampMs) == 0) {
+                packetsWritten++
+            }
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+
+    @Synchronized
+    fun flush() {
+        val h = handle
+        if (h == 0L) return
+        try {
+            PcapWriterBridge.nativeNgFlush(h)
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+
+    override fun close() {
+        val h = handle
+        handle = 0
+        if (h == 0L) return
+        try {
+            PcapWriterBridge.nativeNgClose(h)
         } catch (_: UnsatisfiedLinkError) {
         }
     }

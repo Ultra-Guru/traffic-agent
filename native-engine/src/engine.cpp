@@ -1,5 +1,6 @@
 #include "traffic/engine.h"
 
+#include <cstdlib>
 #include <cstring>
 
 #include "traffic/body.h"
@@ -315,6 +316,12 @@ void Engine::feedTls(Conversation& c, bool clientSide, const uint8_t* data, size
 void Engine::feedHttp(Conversation& c, bool clientSide, const uint8_t* data, size_t len,
                       uint64_t ts) {
     (void)ts;
+    if (c.ws.active) {
+        // Past the 101 upgrade: every byte in both directions is a websocket
+        // frame stream, not HTTP anymore.
+        feedWs(c, clientSide, data, len, lastTs_);
+        return;
+    }
     if (clientSide) {
         c.req.feed(data, len, lastTs_);
         auto msgs = c.req.takeMessages();
@@ -335,9 +342,46 @@ void Engine::feedHttp(Conversation& c, bool clientSide, const uint8_t* data, siz
         c.resp.feed(data, len, lastTs_);
         drainParserMessages(c, lastTs_);
     }
-    if (c.resp.upgradeDetected()) {
-        // 101 Switching Protocols: a tunnel (e.g. websocket) begins here.
+    if (c.resp.upgradeDetected() && !c.ws.active) {
+        // 101 Switching Protocols: a websocket tunnel begins here. The server
+        // often piggybacks the first frames on the very same TCP segment.
         c.req.stop();
+        c.ws.active = true;
+        std::vector<uint8_t> leftover = c.resp.takeUpgradeLeftover();
+        if (!leftover.empty()) {
+            feedWs(c, false, leftover.data(), leftover.size(), lastTs_);
+        }
+    }
+}
+
+// Websocket frame stream: reassemble complete messages per direction and
+// surface each as a WsMessageDetected event (direction, opcode, size and a
+// printable preview; close frames carry their status code).
+void Engine::feedWs(Conversation& c, bool clientSide, const uint8_t* data, size_t len,
+                    uint64_t ts) {
+    WsMessageAssembler& assembler = clientSide ? c.ws.c2s : c.ws.s2c;
+    assembler.feed(data, len);
+    for (WsMessage& m : assembler.takeMessages()) {
+        std::string text = clientSide ? "c>s " : "s>c ";
+        text += wsOpcodeName(m.opcode);
+        text += " " + std::to_string(m.payload.size()) + "B ";
+        if (m.opcode == kWsClose && m.payload.size() >= 2) {
+            uint16_t code = static_cast<uint16_t>((m.payload[0] << 8) | m.payload[1]);
+            text += std::to_string(code);
+        } else {
+            size_t preview = m.payload.size() < 64 ? m.payload.size() : 64;
+            for (size_t i = 0; i < preview; ++i) {
+                uint8_t b = m.payload[i];
+                text.push_back(b >= 0x20 && b < 0x7F ? static_cast<char>(b) : '.');
+            }
+        }
+        EngineEvent ev;
+        ev.kind = EngineEvent::Kind::WsMessageDetected;
+        ev.flow = c.clientFlow;
+        ev.timestampMs = ts;
+        ev.text = truncateText(std::move(text), 96);
+        ev.numeric = static_cast<int32_t>(m.payload.size() & 0x7FFFFFFFu);
+        events_.push_back(std::move(ev));
     }
 }
 
@@ -389,11 +433,8 @@ void Engine::drainParserMessages(Conversation& c, uint64_t ts) {
     }
 }
 
-void Engine::emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t* block, size_t len,
-                              uint64_t ts) {
-    std::vector<HpackHeader> headers;
-    size_t consumed = 0;
-    if (decodeHpack(block, len, &headers, &consumed) != HpackStatus::Ok) return;
+void Engine::emitHttp2HeaderList(Conversation& c, uint32_t streamId,
+                                 const std::vector<HpackHeader>& headers, uint64_t ts) {
     std::string text;
     for (const HpackHeader& h : headers) {
         if (text.size() >= 256) break;
@@ -407,6 +448,86 @@ void Engine::emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t*
     ev.text = truncateText(std::move(text), 256);
     ev.numeric = static_cast<int32_t>(streamId);
     events_.push_back(std::move(ev));
+}
+
+void Engine::emitHttp2Headers(Conversation& c, uint32_t streamId, const uint8_t* block, size_t len,
+                              uint64_t ts) {
+    std::vector<HpackHeader> headers;
+    size_t consumed = 0;
+    if (decodeHpack(block, len, &headers, &consumed) != HpackStatus::Ok) return;
+    emitHttp2HeaderList(c, streamId, headers, ts);
+}
+
+// Renders one assembled HTTP/2 stream as a classic HttpExchangeRecord so the
+// whole HTTP/1 pipeline (exports, session list, MITM-less analysis) works for
+// h2 traffic unchanged.
+void Engine::emitH2Exchange(Conversation& c, const H2StreamRecord& rec, uint64_t ts) {
+    HttpExchangeRecord out;
+    out.flow = c.clientFlow;
+    out.timestampMs = ts;
+    out.protocol = "HTTP2";
+
+    for (const HpackHeader& h : rec.request.headers) {
+        if (h.name == ":method") {
+            out.request.method = h.value;
+        } else if (h.name == ":path") {
+            out.request.target = h.value;
+        } else if (h.name == ":authority") {
+            out.request.headers.entries.emplace_back("Host", h.value);
+        } else if (!h.name.empty() && h.name[0] != ':') {
+            out.request.headers.entries.push_back({h.name, h.value});
+        }
+    }
+    out.request.version = "HTTP/2";
+    out.request.contentLength = rec.request.data.size();
+    out.requestBody = rec.request.data;
+
+    for (const HpackHeader& h : rec.response.headers) {
+        if (h.name == ":status") {
+            out.response.status = static_cast<int>(strtol(h.value.c_str(), nullptr, 10));
+        } else if (!h.name.empty() && h.name[0] != ':') {
+            out.response.headers.entries.push_back({h.name, h.value});
+        }
+    }
+    for (const HpackHeader& h : rec.trailers) {
+        out.response.headers.entries.push_back({h.name, h.value});
+    }
+    out.response.version = "HTTP/2";
+    out.response.contentLength = rec.response.data.size();
+    out.responseBody = rec.response.data;
+    out.truncated = rec.request.truncated || rec.response.truncated;
+
+    std::string enc = out.response.headers.get("content-encoding");
+    std::string ctype = out.response.headers.get("content-type");
+    std::vector<uint8_t> decoded;
+    if (decompressBody(out.responseBody.data(), out.responseBody.size(), enc, &decoded)) {
+        out.responseDecoded = std::move(decoded);
+        out.responseMime =
+            sniffMime(out.responseDecoded.data(), out.responseDecoded.size(), ctype);
+    } else {
+        out.responseMime = sniffMime(out.responseBody.data(), out.responseBody.size(), ctype);
+    }
+    exchanges_.push_back(std::move(out));
+
+    if (rec.isGrpc) {
+        int emitted = 0;
+        for (const GrpcMessage& m : rec.grpcMessages) {
+            if (emitted++ >= 16) break;
+            std::string preview;
+            for (uint8_t b : m.preview) {
+                preview.push_back(b >= 0x20 && b < 0x7F ? static_cast<char>(b) : '.');
+            }
+            EngineEvent ev;
+            ev.kind = EngineEvent::Kind::GrpcMessageDetected;
+            ev.flow = c.clientFlow;
+            ev.timestampMs = ts;
+            ev.text = truncateText("grpc " + std::string(m.compressed ? "gz " : "") +
+                                       std::to_string(m.length) + "B " + preview,
+                                   128);
+            ev.numeric = static_cast<int32_t>(rec.streamId);
+            events_.push_back(std::move(ev));
+        }
+    }
 }
 
 void Engine::feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_t len, uint64_t ts) {
@@ -448,40 +569,10 @@ void Engine::feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_
         const uint8_t* payload = b + 9;
         size_t payloadLen = flen;
 
-        if (type == 1) {  // HEADERS
-            size_t off = 0;
-            size_t end = payloadLen;
-            if ((flags & kH2FlagPadded) != 0) {
-                if (payloadLen == 0) {
-                    d.buf.clear();
-                    return;
-                }
-                end -= static_cast<size_t>(payload[0]) + 1;
-                off = 1;
-            }
-            if ((flags & kH2FlagPriority) != 0) off += 5;
-            if (off > end || end > payloadLen) {
-                d.buf.clear();
-                return;
-            }
-            size_t fragLen = end - off;
-            if ((flags & kH2FlagEndHeaders) != 0) {
-                emitHttp2Headers(c, sid, payload + off, fragLen, ts);
-            } else {
-                d.inHeaders = true;
-                d.streamId = sid;
-                d.block.assign(payload + off, payload + off + fragLen);
-            }
-        } else if (type == 9) {  // CONTINUATION
-            if (d.inHeaders) {
-                d.block.insert(d.block.end(), payload, payload + payloadLen);
-                if ((flags & kH2FlagEndHeaders) != 0) {
-                    emitHttp2Headers(c, d.streamId, d.block.data(), d.block.size(), ts);
-                    d.inHeaders = false;
-                    d.block.clear();
-                }
-            }
-        } else if (type == 0) {  // DATA: byte accounting only
+        // Stream-level reassembly (HEADERS/CONTINUATION/DATA/RST/GOAWAY).
+        c.h2Streams.onFrame(clientSide, type, flags, sid, payload, payloadLen);
+
+        if (type == 0) {  // DATA: byte accounting
             size_t counted = payloadLen;
             if ((flags & kH2FlagPadded) != 0 && payloadLen > 0) {
                 size_t pad = payload[0];
@@ -489,11 +580,20 @@ void Engine::feedH2(Conversation& c, bool clientSide, const uint8_t* data, size_
             }
             c.h2StreamBytes[sid] += counted;
         }
-        // SETTINGS / WINDOW_UPDATE / PING / GOAWAY / ...: skipped by length
+        // SETTINGS / WINDOW_UPDATE / PING / ...: skipped by length
         pos += 9 + flen;
     }
     if (pos > 0) {
         d.buf.erase(d.buf.begin(), d.buf.begin() + static_cast<std::ptrdiff_t>(pos));
+    }
+
+    // Header-block events (stateful HPACK results) keep the old text format.
+    for (const auto& hb : c.h2Streams.takeDecodedHeaders()) {
+        emitHttp2HeaderList(c, hb.streamId, hb.headers, ts);
+    }
+    // Completed streams become regular exchanges.
+    for (const auto& rec : c.h2Streams.takeCompleted()) {
+        emitH2Exchange(c, rec, ts);
     }
 }
 

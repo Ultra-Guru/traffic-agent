@@ -58,6 +58,8 @@ fun SettingsScreen(
     onMitmChange: (Boolean) -> Unit,
     recordPcap: Boolean,
     onRecordPcapChange: (Boolean) -> Unit,
+    pcapngFormat: Boolean,
+    onPcapngFormatChange: (Boolean) -> Unit,
     onExportCa: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -168,15 +170,35 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column {
-                        Text("Record raw packets (.pcap)", style = MaterialTheme.typography.bodyLarge)
+                        Text("Record raw packets", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Every TUN packet is written to a classic pcap file\n" +
-                                "via the native writer — open it in Wireshark/tcpdump.",
+                            "Every TUN packet is written via the native writer —\n" +
+                                "open the file in Wireshark/tcpdump.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Switch(checked = recordPcap, onCheckedChange = onRecordPcapChange)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text("pcapng format", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Modern block format: microsecond timestamps and\n" +
+                                "per-interface options. Files end in .pcapng.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = pcapngFormat,
+                        onCheckedChange = onPcapngFormatChange,
+                        enabled = recordPcap,
+                    )
                 }
             }
 

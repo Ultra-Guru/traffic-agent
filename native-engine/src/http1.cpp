@@ -8,7 +8,7 @@ namespace traffic {
 namespace {
 
 const uint8_t* findCrlfCrlf(const uint8_t* data, size_t len) {
-    if (len < 4) return nullptr; 
+    if (len < 4) return nullptr;
     for (size_t i = 0; i + 4 <= len; ++i) {
         if (data[i] == '\r' && data[i + 1] == '\n' && data[i + 2] == '\r' && data[i + 3] == '\n') {
             return data + i;
@@ -62,7 +62,7 @@ size_t findFirstCrlf(const uint8_t* data, size_t limit) {
     // A CRLFCRLF begins at `limit`, so data[limit] is always readable and the
     // first line is guaranteed to terminate at or before `limit`.
     size_t i = 0;
-    while (i < limit && !(data[i] == '\r' && data[i + 1] == '\n')) ++i; 
+    while (i < limit && !(data[i] == '\r' && data[i + 1] == '\n')) ++i;
     return i;  // i == limit is valid: the line ends exactly at the CRLFCRLF
 }
 
@@ -110,7 +110,7 @@ Http1Status parseHttpRequest(const uint8_t* data, size_t len, Http1Request* out)
     // request line: METHOD SP TARGET SP VERSION
     size_t sp1 = 0;
     while (sp1 < line1End && data[sp1] != ' ') ++sp1;
-    if (sp1 == 0 || sp1 >= line1End) return Http1Status::MalformedRequestLine; 
+    if (sp1 == 0 || sp1 >= line1End) return Http1Status::MalformedRequestLine;
     size_t sp2 = sp1 + 1;
     while (sp2 < line1End && data[sp2] != ' ') ++sp2;
     if (sp2 == sp1 + 1 || sp2 + 1 > line1End) return Http1Status::MalformedRequestLine;

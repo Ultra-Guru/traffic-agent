@@ -10,6 +10,8 @@ class MutableHttpRequest(
     var path: String,
     headers: Map<String, String> = emptyMap(),
     var body: String = "",
+    /** Override port for MapRemote; null = scheme default. */
+    var port: Int? = null,
 ) {
     private val headerMap = LinkedHashMap<String, String>()
 
@@ -84,6 +86,16 @@ sealed class RuleAction {
 
     /** Pretends the origin never answers within [timeoutMs] (simulated hangup). */
     data class Abort(val timeoutMs: Long) : RuleAction()
+
+    /** Sets or replaces one query parameter on the request path. */
+    data class ReplaceQueryParam(val name: String, val value: String) : RuleAction()
+
+    /** HttpCanary-style Map Remote: serve the request from another host. */
+    data class MapRemote(
+        val targetHost: String,
+        val targetPort: Int? = null,
+        val keepHostHeader: Boolean = false,
+    ) : RuleAction()
 }
 
 /** Matching criteria deciding which exchanges a rule applies to. */
@@ -103,15 +115,83 @@ data class RuleMatch(
         return true
     }
 
-    /** Whether two matches can overlap on the same request set (conflict check). */
+    /** Whether two matches can overlap on the same request set (conflict check).
+     *
+     * Sound-but-incomplete: a definite *disjointness* on any single axis
+     * (methods, header equality, literal host/path regexes) proves the two
+     * matches never select the same request; anything else is conservatively
+     * reported as overlapping so the UI never hides a real conflict.
+     */
     fun overlaps(other: RuleMatch): Boolean {
-        val bothHaveHost = hostRegex != null && other.hostRegex != null
-        if (bothHaveHost && !Regex(hostRegex!!).toString().let { hostRegex == other.hostRegex }) {
-            // conservative: identical regexes definitely overlap; different
-            // regexes may still overlap, so treat any pair as potential overlap
-            return true
+        // Disjoint method sets can never match the same request.
+        if (methods.isNotEmpty() && other.methods.isNotEmpty() &&
+            methods.intersect(other.methods).isEmpty()
+        ) {
+            return false
+        }
+        // Same header constrained to different values -> disjoint
+        // (header names compare case-insensitively, as everywhere else).
+        val otherHeaders = other.headerEquals.mapKeys { (k, _) -> k.lowercase() }
+        for ((name, value) in headerEquals) {
+            val otherValue = otherHeaders[name.lowercase()] ?: continue
+            if (!value.equals(otherValue, ignoreCase = true)) return false
+        }
+        if (hostRegex != null && other.hostRegex != null &&
+            literalRegexesDisjoint(hostRegex, other.hostRegex)
+        ) {
+            return false
+        }
+        if (pathRegex != null && other.pathRegex != null &&
+            literalRegexesDisjoint(pathRegex, other.pathRegex)
+        ) {
+            return false
         }
         return true
+    }
+
+    private companion object {
+        /** Metacharacters that make a regex non-literal for the overlap check. */
+        private const val REGEX_META = ".[]{}()*+?^$|"
+
+        /** True when [s] can only match its own literal text: every
+         *  metacharacter is escaped (the usual `api\.example\.com` form). */
+        fun isLiteralRegex(s: String): Boolean {
+            var i = 0
+            while (i < s.length) {
+                if (s[i] == '\\') {
+                    i += 2  // escaped character: literal by definition
+                    continue
+                }
+                if (s[i] in REGEX_META) return false
+                i++
+            }
+            return true
+        }
+
+        /** The literal text [s] matches when it is a literal regex. */
+        fun literalOf(s: String): String {
+            val sb = StringBuilder()
+            var i = 0
+            while (i < s.length) {
+                if (s[i] == '\\' && i + 1 < s.length) {
+                    sb.append(s[i + 1])
+                    i += 2
+                } else {
+                    sb.append(s[i])
+                    i += 1
+                }
+            }
+            return sb.toString()
+        }
+
+        /** Two literal regexes share a subject iff one's literal contains
+         *  the other's. Non-literals are never claimed disjoint. */
+        fun literalRegexesDisjoint(a: String, b: String): Boolean {
+            if (!isLiteralRegex(a) || !isLiteralRegex(b)) return false
+            val la = literalOf(a)
+            val lb = literalOf(b)
+            return !la.contains(lb) && !lb.contains(la)
+        }
     }
 }
 
@@ -131,13 +211,17 @@ data class RewriteRule(
 class RuleRegistry {
 
     private val rules = LinkedHashMap<String, RewriteRule>()
+    private val hits = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     fun add(rule: RewriteRule) {
         require(rule.id.isNotEmpty()) { "rule id must not be empty" }
         rules[rule.id] = rule
     }
 
-    fun remove(id: String): Boolean = rules.remove(id) != null
+    fun remove(id: String): Boolean {
+        hits.remove(id)
+        return rules.remove(id) != null
+    }
 
     fun setEnabled(id: String, enabled: Boolean): Boolean {
         val rule = rules[id] ?: return false
@@ -148,6 +232,19 @@ class RuleRegistry {
     fun rule(id: String): RewriteRule? = rules[id]
 
     fun allRules(): List<RewriteRule> = rules.values.toList()
+
+    /** Times a rule's actions were applied to live traffic. */
+    fun hitCount(id: String): Long = hits[id] ?: 0L
+
+    /** Per-rule hit snapshot for UI rendering. */
+    fun hitCounts(): Map<String, Long> = hits.toMap()
+
+    /** Records one application of [id] (called by [HttpRewriter]). */
+    fun recordHit(id: String) {
+        hits.merge(id, 1L) { a, b -> a + b }
+    }
+
+    fun resetHits() = hits.clear()
 
     /** Enabled rules ordered by descending priority (stable for equal keys). */
     fun activeRules(): List<RewriteRule> =
