@@ -14,6 +14,9 @@ import java.nio.charset.StandardCharsets
  *
  * Request-phase actions run before the origin is contacted; response-phase
  * actions run after the origin answered, before the client sees the bytes.
+ * Request-phase short-circuits (Block / MockResponse / Abort) are honoured:
+ * the origin is never contacted and the synthesized answer (or simulated
+ * timeout) goes straight back to the client.
  * [com.ultra.trafficagent.transform.RuleAction.DelayMs] is honoured up to
  * [maxDelayMs] per phase to protect the tunnel from runaway rules.
  */
@@ -24,12 +27,15 @@ class MitmRewriteInterceptor(
 
     override fun onRequest(ctx: MutableProxyExchange): ProxyDecision {
         val request = ctx.toMutableHttpRequest()
-        val result = HttpRewriter(registry).applyTo(MutableExchange(request))
+        val exchange = MutableExchange(request)
+        val result = HttpRewriter(registry).applyTo(exchange)
         ctx.appliedRuleIds += result.appliedRuleIds
         if (result.appliedRuleIds.isNotEmpty()) {
             ctx.method = request.method
             ctx.host = request.host
             ctx.path = request.path
+            val mappedPort = request.port
+            if (mappedPort != null) ctx.port = mappedPort
             ctx.requestHeaders.replaceWith(MutableHeaders(request.headers().map { (k, v) -> k to v }))
             ctx.requestBody = request.body.toByteArray(StandardCharsets.UTF_8)
             if (request.header("content-length") != null) {
@@ -38,6 +44,29 @@ class MitmRewriteInterceptor(
         }
         val delay = result.delayedByMs.coerceAtMost(maxDelayMs)
         if (delay > 0) Thread.sleep(delay)
+
+        if (result.dropped) {
+            // Abort rule: emulate an origin that never answers.
+            val timeout = result.abortTimeoutMs.coerceAtMost(maxDelayMs)
+            if (timeout > 0) Thread.sleep(timeout)
+            return ProxyDecision.ShortCircuit(
+                504,
+                "upstream timed out (rule abort after ${result.abortTimeoutMs}ms)"
+                    .toByteArray(StandardCharsets.UTF_8),
+                "text/plain; charset=utf-8",
+            )
+        }
+        if (result.shortCircuited) {
+            // Block / MockResponse: the rewriter wrote the answer into the
+            // exchange's response slot — serve it locally.
+            val resp = exchange.response ?: MutableHttpResponse(403)
+            val mime = resp.header("content-type") ?: "text/plain; charset=utf-8"
+            return ProxyDecision.ShortCircuit(
+                resp.status,
+                resp.body.toByteArray(StandardCharsets.UTF_8),
+                mime,
+            )
+        }
         return ProxyDecision.Forward
     }
 

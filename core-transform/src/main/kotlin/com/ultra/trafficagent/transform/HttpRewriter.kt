@@ -9,6 +9,8 @@ data class RewriteResult(
     val shortCircuited: Boolean = false,
     /** A rule aborted the exchange entirely (simulated timeout). */
     val dropped: Boolean = false,
+    /** Timeout of the [RuleAction.Abort] that dropped the exchange. */
+    val abortTimeoutMs: Long = 0,
 ) {
     companion object {
         val NONE = RewriteResult(emptyList(), emptyList(), 0)
@@ -27,10 +29,12 @@ class HttpRewriter(private val registry: RuleRegistry) {
         var delay = 0L
         var shortCircuit = false
         var dropped = false
+        var abortTimeout = 0L
 
         for (rule in registry.activeRules()) {
             if (!rule.match.matches(exchange.request)) continue
             applied += rule.id
+            registry.recordHit(rule.id)
             for (action in rule.actions) {
                 when (action) {
                     is RuleAction.SetHeader -> {
@@ -118,11 +122,63 @@ class HttpRewriter(private val registry: RuleRegistry) {
                         changes += "${rule.id}:abort[${action.timeoutMs}ms]"
                         shortCircuit = true
                         dropped = true
+                        abortTimeout = action.timeoutMs
+                    }
+                    is RuleAction.ReplaceQueryParam -> {
+                        exchange.request.path =
+                            setQueryParam(exchange.request.path, action.name, action.value)
+                        changes += "${rule.id}:query[${action.name}=${action.value}]"
+                    }
+                    is RuleAction.MapRemote -> {
+                        val originalHost = exchange.request.host
+                        exchange.request.host = action.targetHost
+                        if (action.targetPort != null) exchange.request.port = action.targetPort
+                        if (action.keepHostHeader) {
+                            exchange.request.setHeader("host", originalHost)
+                        } else {
+                            exchange.request.setHeader("host", action.targetHost)
+                        }
+                        changes += "${rule.id}:map-remote[${action.targetHost}]"
                     }
                 }
             }
             if (shortCircuit) break
         }
-        return RewriteResult(applied, changes, delay, shortCircuited = shortCircuit, dropped = dropped)
+        return RewriteResult(
+            applied,
+            changes,
+            delay,
+            shortCircuited = shortCircuit,
+            dropped = dropped,
+            abortTimeoutMs = abortTimeout,
+        )
     }
+
+    /** Sets or replaces [name]=[value] in the query string of [path]. */
+    internal fun setQueryParam(path: String, name: String, value: String): String {
+        val hashIdx = path.indexOf('#')
+        val hash = if (hashIdx >= 0) path.substring(hashIdx) else ""
+        val base = if (hashIdx >= 0) path.substring(0, hashIdx) else path
+        val qIdx = base.indexOf('?')
+        val stem = if (qIdx >= 0) base.substring(0, qIdx) else base
+        val query = if (qIdx >= 0) base.substring(qIdx + 1) else ""
+        val pairs = if (query.isEmpty()) {
+            mutableListOf()
+        } else {
+            query.split('&').filter { it.isNotEmpty() }.toMutableList()
+        }
+        val prefix = "${urlEncode(name)}="
+        val replacement = "${urlEncode(name)}=${urlEncode(value)}"
+        val idx = pairs.indexOfFirst { it.startsWith(prefix) }
+        if (idx >= 0) {
+            pairs[idx] = replacement
+        } else {
+            pairs.add(replacement)
+        }
+        return if (pairs.isEmpty()) stem else "$stem?${pairs.joinToString("&")}" + hash
+    }
+
+    private fun urlEncode(s: String): String =
+        java.net.URLEncoder.encode(s, Charsets.UTF_8)
+            .replace("+", "%20")
 }

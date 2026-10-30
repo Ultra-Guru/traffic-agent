@@ -64,6 +64,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val rulepackPicker =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                viewModel.importRulepack(uri)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -77,6 +84,7 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel,
                 requestVpnPermission = { intent -> vpnPermission.launch(intent) },
                 onImportFile = { importFilePicker.launch("*/*") },
+                onImportRulepack = { rulepackPicker.launch("*/*") },
             )
         }
     }
@@ -96,6 +104,7 @@ fun TrafficAgentApp(
     viewModel: CaptureViewModel,
     requestVpnPermission: (Intent) -> Unit,
     onImportFile: () -> Unit = {},
+    onImportRulepack: () -> Unit = {},
 ) {
     var dynamicColor by rememberSaveable { mutableStateOf(true) }
 
@@ -111,10 +120,12 @@ fun TrafficAgentApp(
         val lastImport by viewModel.lastImport.collectAsState()
         val exportFile by viewModel.exportFile.collectAsState()
         val rules by RuleStore.rules.collectAsState()
+        val ruleHits by RuleStore.hits.collectAsState()
 
-        // First-run seed so the Rules screen demonstrates real, working
-        // rewrites (block-ads / auth injection) once MITM is enabled.
-        LaunchedEffect(Unit) { RuleStore.seed(DemoData.initialRules) }
+        // Persisted rulepack wins over the first-run seed (RuleStore.attach
+        // loads <filesDir>/rules.tarule.json when it exists).
+        val appContext = androidx.compose.ui.platform.LocalContext.current
+        LaunchedEffect(Unit) { RuleStore.attach(appContext.filesDir, DemoData.initialRules) }
 
         // Auto-share whenever an export lands.
         val context = LocalContext.current
@@ -189,12 +200,15 @@ fun TrafficAgentApp(
                 )
                 selectedTab == 1 -> RulesScreen(
                     rules = rules,
+                    hitCounts = ruleHits,
                     onToggleRule = { id ->
                         val rule = rules.firstOrNull { it.id == id }
                         if (rule != null) RuleStore.toggle(id, !rule.enabled)
                     },
                     onDeleteRule = { id -> RuleStore.remove(id) },
                     onAddRule = { rule -> RuleStore.add(rule) },
+                    onExportRulepack = viewModel::exportRulepack,
+                    onImportRulepack = onImportRulepack,
                     modifier = modifier,
                 )
                 selectedTab == 2 -> AgentScreen(modifier = modifier)

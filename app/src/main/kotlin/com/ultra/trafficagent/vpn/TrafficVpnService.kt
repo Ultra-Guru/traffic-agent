@@ -265,6 +265,7 @@ class TrafficVpnService : VpnService() {
                         CaptureSession.add(exchange.copy(id = CaptureSession.nextId()))
                     }
                     pushStats(orchestrator?.stats, mitm, pcap)
+                    RuleStore.refreshHits()
                     Thread.sleep(500)
                 } catch (_: InterruptedException) {
                     break
