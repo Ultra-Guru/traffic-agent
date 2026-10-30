@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>LoopWithTooManyJumpStatements:VpnDataPlane.kt$PacketPump$while</ID>
+    <ID>LoopWithTooManyJumpStatements:VpnOrchestrator.kt$VpnOrchestrator$while</ID>
+    <ID>MaxLineLength:PcapFileReader.kt$PcapFileReader.Companion$private val MAGIC_LE = byteArrayOf(0xD4.toByte(), 0xC3.toByte(), 0xB2.toByte(), 0xA1.toByte()) // 0xa1b2c3d4 written little-endian</ID>
+    <ID>MaxLineLength:PcapFileReader.kt$PcapFileReader.Companion$private val MAGIC_LE_NANO = byteArrayOf(0x4D.toByte(), 0x3C.toByte(), 0x2B.toByte(), 0x1A.toByte()) // 0xa1b23c4d little-endian</ID>
+    <ID>ThrowsCount:SessionCodec.kt$SessionCodec.Parser$private fun parseString(): String</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("bad escape")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("bad unicode escape")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("bad value at $i")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("bad word at $i")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("eof")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("expected $c at $i")</ID>
+    <ID>UseRequire:SessionCodec.kt$SessionCodec.Parser$throw IllegalArgumentException("unterminated string")</ID>
+  </CurrentIssues>
+</SmellBaseline>

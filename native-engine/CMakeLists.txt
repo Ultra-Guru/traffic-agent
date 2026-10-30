@@ -22,6 +22,8 @@ set(ENGINE_SOURCES
     src/ws.cpp
     src/quic.cpp
     src/md5.cpp
+    src/sha256.cpp
+    src/ja4.cpp
     src/tls.cpp
     src/hpack.cpp
     src/body.cpp
@@ -53,6 +55,9 @@ if (BUILD_TESTS)
         tests/test_ws_quic.cpp
         tests/test_engine.cpp
         tests/test_md5.cpp
+        tests/test_sha256.cpp
+        tests/test_ja4.cpp
+        tests/test_quic_long.cpp
         tests/test_tls.cpp
         tests/test_hpack.cpp
         tests/test_body.cpp

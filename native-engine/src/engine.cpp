@@ -6,6 +6,7 @@
 #include "traffic/dns.h"
 #include "traffic/hpack.h"
 #include "traffic/http2.h"
+#include "traffic/ja4.h"
 #include "traffic/quic.h"
 #include "traffic/sni.h"
 #include "traffic/tls.h"
@@ -168,6 +169,27 @@ Ipv4Status Engine::feedPacket(const uint8_t* ipPkt, size_t len, uint64_t timesta
                 ev.timestampMs = timestampMs;
                 ev.numeric = static_cast<int32_t>(qi.version);
                 events_.push_back(ev);
+                // Long-header Initials: surface DCID + version tag for the
+                // session detail panel (client fingerprinting aid).
+                if (qi.longHeader) {
+                    QuicLongHeader lh{};
+                    if (parseQuicLongHeader(payload, payloadLen, &lh) == QuicParseStatus::Ok &&
+                        lh.type == QuicLongType::Initial) {
+                        static const char kHex[] = "0123456789abcdef";
+                        std::string dcidHex;
+                        for (uint8_t b : lh.dcid) {
+                            dcidHex.push_back(kHex[b >> 4]);
+                            dcidHex.push_back(kHex[b & 0x0f]);
+                        }
+                        EngineEvent iv;
+                        iv.kind = EngineEvent::Kind::QuicInitialDetected;
+                        iv.flow = key;
+                        iv.timestampMs = timestampMs;
+                        iv.text = quicVersionName(qi.version) + "|" + dcidHex;
+                        iv.numeric = static_cast<int32_t>(qi.version);
+                        events_.push_back(std::move(iv));
+                    }
+                }
             }
         }
         if ((udp.srcPort == 53 || udp.dstPort == 53) && payloadLen >= 12) {  // MUT:&&
@@ -280,7 +302,7 @@ void Engine::inspect(const FlowKey& flow, const uint8_t* data, size_t len, uint6
 void Engine::feedTls(Conversation& c, bool clientSide, const uint8_t* data, size_t len,
                      uint64_t ts) {
     if (!clientSide) return;  // server side: certificates and friends, no MITM here
-    if (c.sniDone && c.ja3Done) return;
+    if (c.sniDone && c.ja3Done && c.ja4Done) return;
     if (c.helloBuf.size() < kHelloBufCap) {
         size_t take = len;
         if (take > kHelloBufCap - c.helloBuf.size()) take = kHelloBufCap - c.helloBuf.size();
@@ -308,6 +330,16 @@ void Engine::feedTls(Conversation& c, bool clientSide, const uint8_t* data, size
             ev.timestampMs = ts;
             ev.text = chi.sni + "|" + chi.ja3Md5;
             events_.push_back(std::move(ev));
+            if (!c.ja4Done) {
+                c.ja4Done = true;
+                Ja4Fingerprint ja4 = computeJa4(chi, false);
+                EngineEvent ev4;
+                ev4.kind = EngineEvent::Kind::TlsJa4Detected;
+                ev4.flow = c.clientFlow;
+                ev4.timestampMs = ts;
+                ev4.text = chi.sni + "|" + ja4.full;
+                events_.push_back(std::move(ev4));
+            }
         }
     }
 }

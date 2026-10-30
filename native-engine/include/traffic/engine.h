@@ -42,6 +42,9 @@ struct EngineEvent {
         // --- extensions (Task 2-a) ---
         Http2HeadersDetected,  // text: first decoded HPACK headers
         TlsJa3Detected,         // text: "sni|ja3md5"
+        // --- extensions (analyzer suite) ---
+        TlsJa4Detected,         // text: "sni|ja4full"
+        QuicInitialDetected,    // text: "versionName|dcidHex"; numeric: version
         DnsMessageParsed        // text: "example.com A 1.2.3.4" / "example.com?"
     };
     Kind kind = EngineEvent::Kind::TcpReset;
@@ -129,6 +132,7 @@ private:
         bool clientKnown = false;
         bool sniDone = false;
         bool ja3Done = false;
+        bool ja4Done = false;
         std::vector<uint8_t> helloBuf;  // leading ClientHello bytes (cap 8 KiB)
 
         Http1FlowParser req{Http1FlowParser::Mode::Requests};

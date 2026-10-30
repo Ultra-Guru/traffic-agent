@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ImplicitDefaultLocale:JsonWriter.kt$JsonWriter$String.format("\\u%04x", c.code)</ID>
+    <ID>MaxLineLength:PostmanExporter.kt$PostmanExporter$""""url":{"raw":${JsonWriter.str(raw)},"protocol":"https","host":${JsonWriter.arr(req.host.split(".").map { JsonWriter.str(it) })},"path":${JsonWriter.arr(pathSegments.map { JsonWriter.str(it) })},"query":${JsonWriter.arr(queryPairs)}}$bodyBlock}}"""</ID>
+    <ID>MaxLineLength:PostmanExporter.kt$PostmanExporter$return """{"info":{"name":${JsonWriter.str(name)},"_postman_id":"${idFor(requests)}","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"item":[$items]}"""</ID>
+    <ID>UnusedParameter:HarExporter.kt$HarExporter$title: String = "traffic-agent capture"</ID>
+  </CurrentIssues>
+</SmellBaseline>
