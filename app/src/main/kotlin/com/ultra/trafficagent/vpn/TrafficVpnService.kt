@@ -16,6 +16,7 @@ import com.ultra.trafficagent.capture.ForwardStackApi
 import com.ultra.trafficagent.capture.JdkSocketOpener
 import com.ultra.trafficagent.capture.NativeEngine
 import com.ultra.trafficagent.capture.OrchestratorStats
+import com.ultra.trafficagent.capture.PcapNgSessionFile
 import com.ultra.trafficagent.capture.PcapSessionFile
 import com.ultra.trafficagent.capture.StackFlow
 import com.ultra.trafficagent.capture.StackFrames
@@ -66,6 +67,7 @@ class TrafficVpnService : VpnService() {
         const val ACTION_STOP = "com.ultra.trafficagent.action.STOP"
         const val EXTRA_MITM = "mitm"
         const val EXTRA_RECORD_PCAP = "record_pcap"
+        const val EXTRA_PCAPNG = "pcapng"
 
         private const val CHANNEL_ID = "traffic_agent_capture"
         private const val NOTIFICATION_ID = 1
@@ -78,11 +80,12 @@ class TrafficVpnService : VpnService() {
         private const val VPN_MTU = 1500
         private const val FALLBACK_DNS = "223.5.5.5"
 
-        fun start(context: Context, mitm: Boolean, recordPcap: Boolean) {
+        fun start(context: Context, mitm: Boolean, recordPcap: Boolean, pcapng: Boolean = false) {
             val intent = Intent(context, TrafficVpnService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_MITM, mitm)
                 putExtra(EXTRA_RECORD_PCAP, recordPcap)
+                putExtra(EXTRA_PCAPNG, pcapng)
             }
             context.startForegroundService(intent)
         }
@@ -98,7 +101,7 @@ class TrafficVpnService : VpnService() {
     private var orchestrator: VpnOrchestrator? = null
     private var mitmTls: MitmProxyServer? = null
     private var mitmPlain: MitmProxyServer? = null
-    private var pcapFile: PcapSessionFile? = null
+    private var pcapFile: PacketRecorder? = null
     private var stackHandle = 0L
     private var engineHandle = 0L
     private var pcapPath: String? = null
@@ -126,12 +129,13 @@ class TrafficVpnService : VpnService() {
 
         mitmEnabled = intent.getBooleanExtra(EXTRA_MITM, false)
         val recordPcap = intent.getBooleanExtra(EXTRA_RECORD_PCAP, false)
+        val pcapng = intent.getBooleanExtra(EXTRA_PCAPNG, false)
 
         startForeground(NOTIFICATION_ID, buildNotification("Starting capture…"))
         CaptureSession.updateState(CaptureState.PREPARING)
 
         val started = try {
-            startCapture(mitmEnabled, recordPcap)
+            startCapture(mitmEnabled, recordPcap, pcapng)
         } catch (e: Exception) {
             CaptureSession.stopped("Failed to start: ${e.message ?: e.javaClass.simpleName}")
             stopSelf()
@@ -166,7 +170,7 @@ class TrafficVpnService : VpnService() {
 
     // ------------------------------------------------------------- capture
 
-    private fun startCapture(mitm: Boolean, recordPcap: Boolean): Boolean {
+    private fun startCapture(mitm: Boolean, recordPcap: Boolean, pcapng: Boolean): Boolean {
         val dns = resolveDns()
 
         // ---- native handles ----
@@ -203,12 +207,17 @@ class TrafficVpnService : VpnService() {
             ).also { it.start() }
         }
 
-        // ---- PCAP recording ----
-        var pcap: PcapSessionFile? = null
+        // ---- PCAP / PCAPNG recording ----
+        var pcap: PacketRecorder? = null
         if (recordPcap) {
             val dir = File(filesDir, "captures").apply { mkdirs() }
-            val target = File(dir, "capture-${System.currentTimeMillis()}.pcap")
-            val file = PcapSessionFile(target.absolutePath)
+            val ext = if (pcapng) "pcapng" else "pcap"
+            val target = File(dir, "capture-${System.currentTimeMillis()}.$ext")
+            val file = if (pcapng) {
+                PcapNgRecorder(PcapNgSessionFile(target.absolutePath), target.absolutePath)
+            } else {
+                ClassicPcapRecorder(PcapSessionFile(target.absolutePath), target.absolutePath)
+            }
             if (file.start()) {
                 pcap = file
                 pcapPath = target.absolutePath
@@ -340,7 +349,7 @@ class TrafficVpnService : VpnService() {
         }
     }
 
-    private fun pushStats(stats: OrchestratorStats?, mitm: Boolean, pcap: PcapSessionFile?) {
+    private fun pushStats(stats: OrchestratorStats?, mitm: Boolean, pcap: PacketRecorder?) {
         val repoStats = CaptureSession.repository.stats()
         CaptureSession.updateStats(
             LiveStats(

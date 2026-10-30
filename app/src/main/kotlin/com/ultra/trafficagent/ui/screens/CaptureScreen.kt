@@ -135,6 +135,8 @@ fun CaptureScreen(
     onExportCsv: () -> Unit = {},
     onExportMarkdown: () -> Unit = {},
     onExportPcap: () -> Unit = {},
+    onImportFile: () -> Unit = {},
+    importMessage: String? = null,
     pcapAvailable: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -211,6 +213,13 @@ fun CaptureScreen(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Import pcap/pcapng…") },
+                            onClick = {
+                                menuOpen = false
+                                onImportFile()
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Clear session") },
                             leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                             onClick = {
@@ -227,6 +236,14 @@ fun CaptureScreen(
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (capturing) {
                 CaptureBanner(stats)
+            }
+            if (importMessage != null) {
+                Text(
+                    importMessage,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
             }
             OutlinedTextField(
                 value = query,

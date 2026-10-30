@@ -57,6 +57,13 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val importFilePicker =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                viewModel.importCaptureFile(uri)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -66,7 +73,11 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            TrafficAgentApp(viewModel) { intent -> vpnPermission.launch(intent) }
+            TrafficAgentApp(
+                viewModel = viewModel,
+                requestVpnPermission = { intent -> vpnPermission.launch(intent) },
+                onImportFile = { importFilePicker.launch("*/*") },
+            )
         }
     }
 }
@@ -84,6 +95,7 @@ private val tabs = listOf(
 fun TrafficAgentApp(
     viewModel: CaptureViewModel,
     requestVpnPermission: (Intent) -> Unit,
+    onImportFile: () -> Unit = {},
 ) {
     var dynamicColor by rememberSaveable { mutableStateOf(true) }
 
@@ -95,6 +107,8 @@ fun TrafficAgentApp(
         val stats by viewModel.stats.collectAsState()
         val mitmEnabled by viewModel.mitmEnabled.collectAsState()
         val recordPcap by viewModel.recordPcap.collectAsState()
+        val pcapngFormat by viewModel.pcapngFormat.collectAsState()
+        val lastImport by viewModel.lastImport.collectAsState()
         val exportFile by viewModel.exportFile.collectAsState()
         val rules by RuleStore.rules.collectAsState()
 
@@ -165,6 +179,11 @@ fun TrafficAgentApp(
                     onExportCsv = viewModel::exportCsv,
                     onExportMarkdown = viewModel::exportMarkdown,
                     onExportPcap = viewModel::exportPcap,
+                    onImportFile = onImportFile,
+                    importMessage = lastImport?.let { res ->
+                        res.error ?: "Imported ${res.packets} packets, " +
+                            "${res.requests} request(s)"
+                    },
                     pcapAvailable = stats?.pcapPath != null,
                     modifier = modifier,
                 )
@@ -186,6 +205,8 @@ fun TrafficAgentApp(
                     onMitmChange = { viewModel.mitmEnabled.value = it },
                     recordPcap = recordPcap,
                     onRecordPcapChange = { viewModel.recordPcap.value = it },
+                    pcapngFormat = pcapngFormat,
+                    onPcapngFormatChange = { viewModel.pcapngFormat.value = it },
                     onExportCa = viewModel::exportCaCertificate,
                     modifier = modifier,
                 )
