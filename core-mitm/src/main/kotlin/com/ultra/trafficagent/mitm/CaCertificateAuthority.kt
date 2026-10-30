@@ -100,6 +100,7 @@ class CaCertificateAuthority private constructor(material: CaMaterial) {
         val store = KeyStore.getInstance(KEYSTORE_TYPE)
         store.load(null, null)
         store.setKeyEntry(CA_ALIAS, caKeyPair.private, password, arrayOf(caCertificate))
+        file.parentFile?.mkdirs()
         file.outputStream().use { store.store(it, password) }
     }
 
@@ -152,6 +153,21 @@ class CaCertificateAuthority private constructor(material: CaMaterial) {
     private fun randomSerial(): BigInteger = BigInteger(SERIAL_BITS, random).add(BigInteger.ONE)
 
     companion object {
+        /**
+         * Restores a CA previously written by [saveKeyStore] so issued leaf
+         * certificates stay valid across app restarts (re-generating the CA
+         * would force the user to reinstall the certificate).
+         */
+        fun fromKeyStore(file: File, password: CharArray): CaCertificateAuthority {
+            val store = KeyStore.getInstance(KEYSTORE_TYPE)
+            file.inputStream().use { store.load(it, password) }
+            val key = store.getKey(CA_ALIAS, password) as? PrivateKey
+                ?: throw KeyStoreException("no CA key entry '$CA_ALIAS' in ${file.path}")
+            val certificate = store.getCertificate(CA_ALIAS) as? X509Certificate
+                ?: throw KeyStoreException("no CA certificate entry '$CA_ALIAS' in ${file.path}")
+            return CaCertificateAuthority(CaMaterial(KeyPair(certificate.publicKey, key), certificate))
+        }
+
         private const val KEY_SIZE_BITS = 2048
         private const val SERIAL_BITS = 127
         private const val LOAD_FACTOR = 0.75f

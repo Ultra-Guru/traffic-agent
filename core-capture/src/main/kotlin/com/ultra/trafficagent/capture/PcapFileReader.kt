@@ -112,25 +112,35 @@ class PcapFileReader(private val bytes: ByteArray) {
         }
     }
 
-    fun ipv4Datagrams(): List<Ipv4Datagram> =
-        ethernetFrames().filter { it.etherType == 0x0800 }.mapNotNull { frame ->
-            val d = frame.payload
-            if (d.size < 20) return@mapNotNull null
-            val version = (d[0].toInt() shr 4) and 0xF
-            val ihl = d[0].toInt() and 0xF
-            if (version != 4 || ihl < 5) return@mapNotNull null
-            val protocol = d[9].toInt() and 0xFF
-            val headerLen = ihl * 4
-            if (headerLen > d.size) return@mapNotNull null
-            Ipv4Datagram(
-                version = version,
-                ihl = ihl,
-                protocol = protocol,
-                sourceAddress = d.copyOfRange(12, 16),
-                destinationAddress = d.copyOfRange(16, 20),
-                payload = d.copyOfRange(headerLen, d.size),
-            )
+    fun ipv4Datagrams(): List<Ipv4Datagram> {
+        // LINKTYPE_RAW (101): record payload IS the IPv4 datagram — the layout
+        // our own PcapWriterBridge emits for TUN captures. Otherwise fall
+        // back to Ethernet-framed files (link type 1).
+        if (header.linkType == 101) {
+            return records().mapNotNull { rec -> parseIpv4(rec.data) }
         }
+        return ethernetFrames().filter { it.etherType == 0x0800 }.mapNotNull { frame ->
+            parseIpv4(frame.payload)
+        }
+    }
+
+    private fun parseIpv4(d: ByteArray): Ipv4Datagram? {
+        if (d.size < 20) return null
+        val version = (d[0].toInt() shr 4) and 0xF
+        val ihl = d[0].toInt() and 0xF
+        if (version != 4 || ihl < 5) return null
+        val protocol = d[9].toInt() and 0xFF
+        val headerLen = ihl * 4
+        if (headerLen > d.size) return null
+        return Ipv4Datagram(
+            version = version,
+            ihl = ihl,
+            protocol = protocol,
+            sourceAddress = d.copyOfRange(12, 16),
+            destinationAddress = d.copyOfRange(16, 20),
+            payload = d.copyOfRange(headerLen, d.size),
+        )
+    }
 
     fun tcpSegments(): List<TcpSegmentData> =
         ipv4Datagrams().filter { it.protocol == 6 }.mapNotNull { ip ->

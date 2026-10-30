@@ -14,21 +14,27 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.ultra.trafficagent.capture.CaptureMode
 import com.ultra.trafficagent.capture.RootCommandBuilder
-import com.ultra.trafficagent.capture.NativeEngine
+import com.ultra.trafficagent.vpn.CaManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 
 private val captureModes = listOf(
     CaptureMode.VPN to "VPN (tun)",
@@ -36,15 +42,28 @@ private val captureModes = listOf(
     CaptureMode.ROOT_PCAP_FILE to "Root · pcap",
 )
 
+/** Lazy CA info for the settings card (null until loaded off the main thread). */
+private data class CaInfo(
+    val subject: String,
+    val validTo: String,
+    val sha256Short: String,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     dynamicColor: Boolean,
     onDynamicColorChange: (Boolean) -> Unit,
+    mitmEnabled: Boolean,
+    onMitmChange: (Boolean) -> Unit,
+    recordPcap: Boolean,
+    onRecordPcapChange: (Boolean) -> Unit,
+    onExportCa: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedMode by remember { mutableStateOf(CaptureMode.VPN) }
-    var mitmEnabled by remember { mutableStateOf(false) }
+    var caInfo by remember { mutableStateOf<CaInfo?>(null) }
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier,
@@ -89,13 +108,75 @@ fun SettingsScreen(
                     Column {
                         Text("Decrypt HTTPS traffic", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Requires the CA certificate to be installed and trusted\n" +
-                                "core-mitm issues per-host leafs on the fly",
+                            "Transparent TLS termination with SNI-driven leaf\n" +
+                                "certificates. Applied on the next capture session.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = mitmEnabled, onCheckedChange = { mitmEnabled = it })
+                    Switch(checked = mitmEnabled, onCheckedChange = onMitmChange)
+                }
+            }
+
+            SectionCard("CA certificate") {
+                LaunchedEffect(Unit) {
+                    if (caInfo == null) {
+                        caInfo = withContext(Dispatchers.IO) {
+                            runCatching { loadCaInfo(context.filesDir) }.getOrNull()
+                        }
+                    }
+                }
+                val info = caInfo
+                if (info != null) {
+                    Text(info.subject, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Valid until ${info.validTo}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "SHA-256: ${info.sha256Short}…",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "The CA is generated on first capture with decryption on.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(onClick = onExportCa) {
+                    Text("Export certificate (.pem)")
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Install: share the .pem, open it, then Settings → Security → " +
+                        "Encrypt & credential storage → Install a certificate → CA certificate. " +
+                        "Apps targeting API 24+ additionally require the certificate in the " +
+                        "system store (root) to trust it inside their own traffic.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SectionCard("PCAP recording") {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text("Record raw packets (.pcap)", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Every TUN packet is written to a classic pcap file\n" +
+                                "via the native writer — open it in Wireshark/tcpdump.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = recordPcap, onCheckedChange = onRecordPcapChange)
                 }
             }
 
@@ -117,7 +198,7 @@ fun SettingsScreen(
             }
 
             SectionCard("About") {
-                Text("Traffic Agent 0.3.0", style = MaterialTheme.typography.titleMedium)
+                Text("Traffic Agent 0.4.0", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Kotlin + C++ + Python on-device traffic agent.\n" +
@@ -129,6 +210,19 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+private fun loadCaInfo(filesDir: java.io.File): CaInfo {
+    val ca = CaManager.loadOrCreate(filesDir)
+    val cert = ca.caCertificate()
+    val sha256 = MessageDigest.getInstance("SHA-256")
+        .digest(cert.encoded)
+        .joinToString("") { "%02x".format(it) }
+    return CaInfo(
+        subject = cert.subjectX500Principal.name,
+        validTo = cert.notAfter.toString(),
+        sha256Short = sha256.take(16),
+    )
 }
 
 @Composable

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- CA certificate / session exports shared from the app's private dir -->
+    <files-path name="exports" path="exports/" />
+    <files-path name="captures" path="captures/" />
+</paths>

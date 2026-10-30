@@ -17,14 +17,18 @@
 
 #include <jni.h>
 
+#include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "traffic/body.h"
 #include "traffic/engine.h"
+#include "traffic/export_lines.h"
 #include "traffic/hpack.h"
 #include "traffic/md5.h"
+#include "traffic/pcap_write.h"
 #include "traffic/stack.h"
 #include "traffic/tls.h"
 
@@ -40,6 +44,31 @@ jstring toJString(JNIEnv* env, const std::string& s) {
 
 traffic::ForwardStack* asStack(jlong handle) {
     return reinterpret_cast<traffic::ForwardStack*>(static_cast<uintptr_t>(handle));
+}
+
+traffic::PcapWriter* asPcapWriter(jlong handle) {
+    return reinterpret_cast<traffic::PcapWriter*>(static_cast<uintptr_t>(handle));
+}
+
+// Exchange ids are only required to be unique within one process; the app
+// layer re-ids when merging into its CaptureRepository anyway.
+uint64_t nextExchangeId() {
+    static std::atomic<uint64_t> counter{1};
+    return counter.fetch_add(1, std::memory_order_relaxed);
+}
+
+jobjectArray toJStringArray(JNIEnv* env, const std::vector<std::string>& lines) {
+    jclass cls = env->FindClass("java/lang/String");
+    if (cls == nullptr) return nullptr;
+    jobjectArray out = env->NewObjectArray(static_cast<jsize>(lines.size()), cls, nullptr);
+    if (out == nullptr) return nullptr;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        jstring s = toJString(env, lines[i]);
+        if (s == nullptr) return nullptr;
+        env->SetObjectArrayElement(out, static_cast<jsize>(i), s);
+        env->DeleteLocalRef(s);
+    }
+    return out;
 }
 
 // Packs the vector of emitted packets into a Java byte[][] for the Kotlin loop.
@@ -139,6 +168,83 @@ Java_com_ultra_trafficagent_capture_NativeEngine_nativeDestroy(JNIEnv* /*env*/, 
                                                                jlong handle) {
     auto* engine = asEngine(handle);
     if (engine != nullptr) delete engine;
+}
+
+// ---- VPN tap drains (events + exchanges as text lines) ----
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_NativeEngine_nativeTakeEvents(JNIEnv* env,
+                                                                    jobject /*thiz*/,
+                                                                    jlong handle) {
+    auto* engine = asEngine(handle);
+    if (engine == nullptr) return nullptr;
+    std::vector<std::string> lines;
+    lines.reserve(engine->events().size());
+    for (const auto& ev : engine->events()) {
+        lines.push_back(traffic::engineEventToLine(ev));
+    }
+    engine->clearEvents();
+    return toJStringArray(env, lines);
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_ultra_trafficagent_capture_NativeEngine_nativeTakeExchanges(JNIEnv* env,
+                                                                       jobject /*thiz*/,
+                                                                       jlong handle) {
+    auto* engine = asEngine(handle);
+    if (engine == nullptr) return nullptr;
+    std::vector<std::string> lines;
+    lines.reserve(engine->exchanges().size());
+    for (const auto& rec : engine->exchanges()) {
+        lines.push_back(traffic::exchangeToJsonLine(rec, nextExchangeId()));
+    }
+    engine->clearExchanges();
+    return toJStringArray(env, lines);
+}
+
+// ---- PcapWriterBridge (PCAP 导出, 基建四「存」) ----
+
+JNIEXPORT jlong JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeOpen(JNIEnv* env,
+                                                                   jobject /*thiz*/,
+                                                                   jstring path, jint snaplen,
+                                                                   jint linkType) {
+    const char* utf = (path != nullptr) ? env->GetStringUTFChars(path, nullptr) : nullptr;
+    if (utf == nullptr) return 0;
+    std::string pathStr = utf;
+    env->ReleaseStringUTFChars(path, utf);
+    auto writer = traffic::PcapWriter::open(
+        pathStr, static_cast<uint32_t>(snaplen), static_cast<uint32_t>(linkType));
+    if (writer == nullptr) return 0;
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(writer.release()));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeWritePacket(JNIEnv* env,
+                                                                          jobject /*thiz*/,
+                                                                          jlong handle,
+                                                                          jbyteArray pkt,
+                                                                          jlong tsMs) {
+    auto* writer = asPcapWriter(handle);
+    if (writer == nullptr) return -1;
+    std::vector<uint8_t> buf = jbyteToVector(env, pkt);
+    return static_cast<jint>(writer->writePacket(buf.data(), buf.size(),
+                                                  static_cast<uint64_t>(tsMs)));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeFlush(JNIEnv* /*env*/, jobject /*thiz*/,
+                                                                   jlong handle) {
+    auto* writer = asPcapWriter(handle);
+    if (writer == nullptr) return -1;
+    return static_cast<jint>(writer->flush());
+}
+
+JNIEXPORT void JNICALL
+Java_com_ultra_trafficagent_capture_PcapWriterBridge_nativeClose(JNIEnv* /*env*/, jobject /*thiz*/,
+                                                                    jlong handle) {
+    auto* writer = asPcapWriter(handle);
+    if (writer != nullptr) delete writer;
 }
 
 // ---- Task 2-a additions (TLS/JA3, HPACK, body decoding) ----

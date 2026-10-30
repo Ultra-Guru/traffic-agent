@@ -19,7 +19,14 @@
 
 | 能力 | 状态 | 实现层 |
 |------|------|--------|
-| **用户态 TCP 转发栈（SYN 应答/去重/乱序修复/窗口节流/FIN/RST）** | **v0.3.1 新增** | C++ `native-engine` `ForwardStack`（`stack.cpp`/`packet_build.cpp`）+ JNI `TcpStackBridge` |
+| **App 数据面全链路接通（TUN → ForwardStack → 上游 socket/MITM → UI 实时列表）** | **v0.4 新增** | `app` `TrafficVpnService` + `core-capture` `VpnOrchestrator` + `session/CaptureSession` |
+| **透明 TLS MITM（VPN 重定向 443 流量，SNI 动态签发叶子证书）** | **v0.4 新增** | `core-mitm` `ServeMode.TRANSPARENT_TLS` + `CaManager`（PKCS12 持久化跨重启） |
+| **DNS 劫持转发（UDP/53 重写到指定解析器）** | **v0.4 新增** | `core-capture` `VpnOrchestrator`（`dnsForward`） |
+| **PCAP 导出（经典 pcap，Wireshark/tcpdump 直开）** | **v0.4 新增** | C++ `native-engine` `PcapWriter` + JNI `PcapWriterBridge` + `PcapFileReader` 回读闭环 |
+| **VPN 旁路分析（SNI/JA3/DNS/明文 HTTP 双通道捕获）** | **v0.4 新增** | C++ `export_lines.cpp` + JNI `nativeTakeEvents`/`nativeTakeExchanges` + `VpnAnalysisTap` |
+| **实时规则热更新（Rules 屏改动即时作用于在捕流量）** | **v0.4 新增** | `session/RuleStore`（写时复制快照）+ `LiveRuleInterceptor` |
+| **CA 证书导出/安装引导 + 前台服务通知 + VPN 权限流** | **v0.4 新增** | `app` `SettingsScreen`/`TrafficVpnService`/`MainActivity` |
+| **用户态 TCP 转发栈（SYN 应答/去重/乱序修复/窗口节流/FIN/RST）** | v0.3.1 | C++ `native-engine` `ForwardStack`（`stack.cpp`/`packet_build.cpp`）+ JNI `TcpStackBridge` |
 | **QUIC 阻断降级 + MITM 重定向（443→本地 TLS 代理）** | **v0.3.1 新增** | `ForwardStack`（浏览器回退到可拦截的 TCP TLS） |
 | **会话持久化（JSONL 环形 + 滚动轮转 + 重启恢复）** | **v0.3.1 新增** | `core-capture` `SessionCodec` + `core-analysis` `SessionStore` |
 | **MITM 中继 HTTP/1.x 交换（chunked 解码后重框架 + 捕获）** | **v0.3.1 新增** | `core-mitm` `HttpRelay`（本地回环 E2E 测试） |
@@ -86,7 +93,7 @@
 
 | 路径 | 语言 | 测试 | 变异工具 |
 |------|------|------|----------|
-| `native-engine/` | C++17 | ctest（160 用例，含 ForwardStack 10 例） | `scripts/native_mutate.py`（源码注解式，118 个变异点） |
+| `native-engine/` | C++17 | ctest（174 用例，含 ForwardStack 10 例、PCAP 写出 7 例、导出行 6 例） | `scripts/native_mutate.py`（源码注解式，135 个变异点） |
 | `python/` | Python 3 | pytest（88 用例） | mutmut 3.8 |
 | `core-capture` | Kotlin | JUnit5（含 ReplayEngine E2E） | PIT (pitest) |
 | `core-mitm` | Kotlin | JUnit5（HTTPS MITM E2E 21 例） | PIT (pitest) |
@@ -134,7 +141,7 @@ python3 scripts/pitest_gate.py --min-score 65
 | Kotlin core | JUnit5 + PIT（DEFAULTS 变异集，642 个变异体） | 65% |
 | Android app | assembleDebug（Compose M3 + NDK 交叉编译 native 引擎） | 构建通过 |
 
-本地当前分数：**C++ 100%**（130/132，2 个标记不匹配跳过）· **Python 75.5%**（760/1006）· **Kotlin 68.1%**（437/642）。C++ 测试规模 141 用例 / 1122 断言（v0.3 起）。
+本地当前分数：**C++ 100%**（135/137，2 个标记不匹配跳过）· **Python 75.5%**（760/1006）· **Kotlin 65.2%**（1168/1792，门槛 65%）。C++ 测试规模 174 用例 / 1343 断言（v0.4 起）。
 
 ## 看板（TB1–TB5）
 
@@ -152,7 +159,8 @@ python3 scripts/pitest_gate.py --min-score 65
 - ~~**v0.3**：MITM 解密（SSLKEYLOGFILE + 用户 CA 信任），HTTP2 完整头部解码（HPACK）~~ ✅ `core-mitm` 全量 + HPACK 解码器已交付
 - ~~**v0.3.1**：双向转发数据面（用户态 TCP 栈 + 会话持久化 + 中继捕获）~~ ✅ `ForwardStack`/`SessionStore`/`HttpRelay` 已交付
 - ~~**v1.0 弱网模拟（延迟/丢包/限速）**~~ ✅ `WeakNetworkSimulator` 已交付（延迟/抖动/丢包/双向令牌桶限速）
-- **v0.4**：Root 模式实机验证（iptables REDIRECT + tcpdump 导入），PCAP 导出
+- ~~**v0.4**：App 数据面接通 + 透明 MITM + PCAP 导出 + 规则热更新~~ ✅ `TrafficVpnService`/`VpnOrchestrator`/`PcapWriter`/`RuleStore` 已交付（真机联调待 NDK APK 安装）
+- **v0.4.1**：Root 模式实机验证（iptables REDIRECT + tcpdump 导入）
 - **v0.5**：Python sidecar 混入 APK（Chaquopy 集成），Agent 工具链实机运行
 - **v1.0**：gRPC 检测、QUIC 采样解密、Google Play 内测发布
 

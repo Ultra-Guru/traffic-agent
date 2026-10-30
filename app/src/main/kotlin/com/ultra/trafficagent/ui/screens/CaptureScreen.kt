@@ -15,12 +15,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -38,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ultra.trafficagent.capture.CapturedRequest
 import com.ultra.trafficagent.capture.Protocol
+import com.ultra.trafficagent.session.CaptureState
+import com.ultra.trafficagent.session.LiveStats
 
 private enum class CaptureFilter(val label: String) {
     ALL("All"), HTTP("HTTP"), TLS("TLS"), WEBSOCKET("WS"), ERROR("Error");
@@ -116,13 +125,23 @@ private fun filterWithQuery(requests: List<CapturedRequest>, query: String): Lis
 @Composable
 fun CaptureScreen(
     requests: List<CapturedRequest>,
-    captureEnabled: Boolean,
+    captureState: CaptureState,
+    stats: LiveStats? = null,
     onToggleCapture: () -> Unit,
     onOpenRequest: (CapturedRequest) -> Unit,
+    onClear: () -> Unit = {},
+    onExportHar: () -> Unit = {},
+    onExportPostman: () -> Unit = {},
+    onExportCsv: () -> Unit = {},
+    onExportMarkdown: () -> Unit = {},
+    onExportPcap: () -> Unit = {},
+    pcapAvailable: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(CaptureFilter.ALL) }
+    var menuOpen by remember { mutableStateOf(false) }
+    val capturing = captureState == CaptureState.ACTIVE || captureState == CaptureState.PREPARING
 
     val visible = filterWithQuery(requests, query).filter { req ->
         val matchesFilter = when (filter) {
@@ -143,17 +162,72 @@ fun CaptureScreen(
                 actions = {
                     AssistChip(
                         onClick = onToggleCapture,
-                        label = { Text(if (captureEnabled) "Stop" else "Start") },
+                        label = { Text(if (capturing) "Stop" else "Start") },
                         leadingIcon = {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                            Icon(
+                                if (capturing) Icons.Filled.Close else Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                            )
                         },
                     )
-                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Export HAR") },
+                            onClick = {
+                                menuOpen = false
+                                onExportHar()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Postman collection") },
+                            onClick = {
+                                menuOpen = false
+                                onExportPostman()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export CSV") },
+                            onClick = {
+                                menuOpen = false
+                                onExportCsv()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Markdown") },
+                            onClick = {
+                                menuOpen = false
+                                onExportMarkdown()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share PCAP recording") },
+                            enabled = pcapAvailable,
+                            onClick = {
+                                menuOpen = false
+                                onExportPcap()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Clear session") },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onClear()
+                            },
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
                 },
             )
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            if (capturing) {
+                CaptureBanner(stats)
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -174,14 +248,85 @@ fun CaptureScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(visible, key = { it.id }) { req ->
-                    RequestRow(req = req, onClick = { onOpenRequest(req) })
+            if (visible.isEmpty()) {
+                EmptyCaptureHint(capturing = capturing, requests = requests)
+            } else {
+                LazyColumn(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(visible, key = { it.id }) { req ->
+                        RequestRow(req = req, onClick = { onOpenRequest(req) })
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCaptureHint(capturing: Boolean, requests: List<CapturedRequest>) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            if (requests.isEmpty()) "No captures yet" else "No matches for this filter",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (requests.isEmpty()) {
+                if (capturing) "Traffic will appear here as apps talk to the network." else
+                    "Tap Start to begin capturing — enable HTTPS decryption in Settings for TLS bodies."
+            } else {
+                "Try clearing the filter chips or the query."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun CaptureBanner(stats: LiveStats?) {
+    if (stats == null) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+        return
+    }
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                buildString {
+                    append(stats.requests)
+                    append(" requests · ↑")
+                    append(formatBytes(stats.bytesUp))
+                    append(" · ↓")
+                    append(formatBytes(stats.bytesDown))
+                },
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                buildString {
+                    append(stats.flowsActive)
+                    append(" live flows · ")
+                    append(stats.packetsFromTun)
+                    append(" pkts in / ")
+                    append(stats.packetsToTun)
+                    append(" out")
+                    if (stats.mitmEnabled) append(" · HTTPS decrypted")
+                    if (stats.recordingPcap) append(" · PCAP on")
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

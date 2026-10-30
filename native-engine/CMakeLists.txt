@@ -27,6 +27,8 @@ set(ENGINE_SOURCES
     src/body.cpp
     src/multipart.cpp
     src/pcapng.cpp
+    src/pcap_write.cpp
+    src/export_lines.cpp
     src/packet_build.cpp
     src/stack.cpp
     src/engine.cpp)
@@ -55,6 +57,8 @@ if (BUILD_TESTS)
         tests/test_hpack.cpp
         tests/test_body.cpp
         tests/test_multipart_pcapng.cpp
+        tests/test_pcap_write.cpp
+        tests/test_export_lines.cpp
         tests/test_stack.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)
     add_test(NAME engine_tests COMMAND engine_tests)

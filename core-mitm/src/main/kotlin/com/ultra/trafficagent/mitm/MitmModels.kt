@@ -34,6 +34,22 @@ fun interface CaptureListener {
     fun onExchange(exchange: ProxyExchange)
 }
 
+/**
+ * How a connection decides what it is serving:
+ *
+ *  * [AUTO] — classic explicit proxy behavior: CONNECT tunnels and
+ *    absolute-form requests, plus transparent origin-form plain HTTP
+ *    (VPN-redirected port 80 flows). A leading TLS handshake byte is NOT
+ *    recoverable after the peek, so AUTO cannot serve transparent TLS.
+ *  * [TRANSPARENT_TLS] — every connection is a VPN-redirected TLS flow:
+ *    the handshake starts immediately, leaf certificates follow the
+ *    client's SNI.
+ *
+ * The forwarding stack already splits 443/80 into two local proxy ports,
+ * so the VpnService runs one server per mode.
+ */
+enum class ServeMode { AUTO, TRANSPARENT_TLS }
+
 /** How an interceptor resolved the request half of an exchange. */
 sealed class ProxyDecision {
     /** Keep piping the (possibly modified) exchange towards the origin. */

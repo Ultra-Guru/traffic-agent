@@ -63,9 +63,16 @@ class MitmProxyServer(
     private val config: MitmConfig = MitmConfig(),
     private val listener: CaptureListener? = null,
     private val socketProtector: SocketProtector = SocketProtector.NONE,
+    private val mode: ServeMode = ServeMode.AUTO,
 ) {
     init {
         require(port in 0..65535) { "port must be 0..65535" }
+    }
+
+    private companion object {
+        /** TLS record type "handshake" — first byte a redirected client sends. */
+        const val TLS_HANDSHAKE_TYPE = 0x16
+        const val HTTPS_PORT = 443
     }
 
     private val running = AtomicBoolean(false)
@@ -141,8 +148,21 @@ class MitmProxyServer(
 
     private fun runConnection(client: Socket) {
         try {
+            if (mode == ServeMode.TRANSPARENT_TLS) {
+                // No peeking: a peeked byte cannot be pushed back into the
+                // kernel socket, and the TLS layer must see the handshake
+                // from its very first byte.
+                handleTransparentTls(client)
+                return
+            }
             val input = BufferedInputStream(client.getInputStream(), 16 * 1024)
             val output = BufferedOutputStream(client.getOutputStream(), 16 * 1024)
+            // Sniff the first byte: a TLS handshake (0x16) cannot be served
+            // in AUTO mode (see [ServeMode]); read the request line instead.
+            input.mark(1)
+            val first = input.read()
+            input.reset()
+            if (first == TLS_HANDSHAKE_TYPE) return
             val firstLine = HttpIo.readLine(input) ?: return
             if (firstLine.startsWith("CONNECT ", ignoreCase = true)) {
                 handleTunnel(client, input, output, firstLine)
@@ -156,6 +176,47 @@ class MitmProxyServer(
                 client.close()
             } catch (_: IOException) {
             }
+        }
+    }
+
+    /**
+     * Transparent TLS termination for VPN mode: the client was redirected
+     * here by the forwarding stack without knowing it, so no CONNECT
+     * preamble exists — the TLS handshake starts immediately. Leaf
+     * certificate selection is driven by the client's SNI (see
+     * [DynamicSniKeyManager]); the HTTP host is resolved from the Host
+     * header once decrypted.
+     */
+    private fun handleTransparentTls(client: Socket) {
+        val tlsClient = serverContext.socketFactory.createSocket(
+            client, client.inetAddress?.hostAddress ?: "localhost", client.port, true,
+        ) as SSLSocket
+        tlsClient.useClientMode = false
+        tlsClient.use {
+            tlsClient.startHandshake()
+            val sniHost = sniOf(tlsClient)
+            serveRequests(
+                clientInput = tlsClient.inputStream,
+                clientOutput = tlsClient.outputStream,
+                scheme = "https",
+                defaultHost = sniHost,
+                defaultPort = HTTPS_PORT,
+                tls = true,
+                firstLine = HttpIo.readLine(tlsClient.inputStream) ?: return,
+            )
+        }
+    }
+
+    /** Best-effort SNI extraction from the completed handshake session. */
+    private fun sniOf(socket: SSLSocket): String {
+        return try {
+            (socket.handshakeSession as? javax.net.ssl.ExtendedSSLSession)
+                ?.requestedServerNames
+                ?.filterIsInstance<javax.net.ssl.SNIHostName>()
+                ?.firstOrNull()
+                ?.asciiName ?: ""
+        } catch (_: RuntimeException) {
+            ""
         }
     }
 

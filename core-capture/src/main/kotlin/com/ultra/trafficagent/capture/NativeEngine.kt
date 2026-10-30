@@ -32,6 +32,19 @@ object NativeEngine {
 
     external fun nativeClearEvents(handle: Long)
 
+    /**
+     * Drains pending protocol-detection events as tab-separated lines
+     * "kind\ttsMs\tsrcIp:port\tdstIp:port\ttext\tnumeric" (see
+     * engineEventToLine in native-engine/src/export_lines.cpp).
+     */
+    external fun nativeTakeEvents(handle: Long): Array<String>?
+
+    /**
+     * Drains completed plain-HTTP exchanges as SessionCodec-compatible
+     * JSONL lines (parse with [SessionCodec.decode]).
+     */
+    external fun nativeTakeExchanges(handle: Long): Array<String>?
+
     /** Frees the engine handle. */
     external fun nativeDestroy(handle: Long)
 }
