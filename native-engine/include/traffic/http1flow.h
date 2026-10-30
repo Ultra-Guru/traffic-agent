@@ -42,6 +42,11 @@ public:
 
     std::vector<Http1Message> takeMessages();
 
+    // Bytes that arrived after the 101-upgrade response head on the same or
+    // later segments (the first websocket frames often piggyback there).
+    // Only meaningful once upgradeDetected(); consumes the internal buffer.
+    std::vector<uint8_t> takeUpgradeLeftover();
+
 private:
     enum class State {
         Headers,          // accumulating the head, waiting for CRLFCRLF

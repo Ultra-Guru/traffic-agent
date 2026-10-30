@@ -19,6 +19,7 @@ set(ENGINE_SOURCES
     src/http1.cpp
     src/http1flow.cpp
     src/http2.cpp
+    src/http2flow.cpp
     src/ws.cpp
     src/quic.cpp
     src/md5.cpp
@@ -50,7 +51,9 @@ if (BUILD_TESTS)
         tests/test_sni.cpp
         tests/test_http1.cpp
         tests/test_http2.cpp
+        tests/test_http2flow.cpp
         tests/test_ws_quic.cpp
+        tests/test_ws_tunnel.cpp
         tests/test_engine.cpp
         tests/test_md5.cpp
         tests/test_tls.cpp

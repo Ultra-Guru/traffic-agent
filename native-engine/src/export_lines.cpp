@@ -51,6 +51,8 @@ const char* kindName(EngineEvent::Kind k) {
         case EngineEvent::Kind::Http2HeadersDetected: return "h2";
         case EngineEvent::Kind::TlsJa3Detected: return "ja3";
         case EngineEvent::Kind::DnsMessageParsed: return "dns";
+        case EngineEvent::Kind::GrpcMessageDetected: return "grpc";
+        case EngineEvent::Kind::WsMessageDetected: return "ws";
     }
     return "unknown";
 }
@@ -162,7 +164,9 @@ std::string exchangeToJsonLine(const HttpExchangeRecord& rec, uint64_t id) {
                                                   rec.responseBody.size()));
     out.append(buf);
 
-    out.append(",\"protocol\":\"HTTP1\",\"uid\":null}");
+    out.append(",\"protocol\":");
+    appendJsonString(&out, rec.protocol.empty() ? "HTTP1" : rec.protocol);
+    out.append(",\"uid\":null}");
     return out;
 }
 

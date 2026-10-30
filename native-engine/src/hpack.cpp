@@ -224,14 +224,19 @@ HpackStatus lookupName(const DynTable& dyn, uint64_t index, std::string* name) {
 
 }  // namespace
 
-HpackStatus decodeHpack(const uint8_t* data, size_t len, std::vector<HpackHeader>* out,
-                        size_t* consumed) {
-    if (data == nullptr || out == nullptr) return HpackStatus::TooShort;
-    if (len == 0) {
-        if (consumed != nullptr) *consumed = 0;
-        return HpackStatus::Ok;
-    }
+struct HpackDecoder::Impl {
     DynTable dyn;
+};
+
+HpackDecoder::HpackDecoder() : impl_(new Impl) {}
+HpackDecoder::~HpackDecoder() = default;
+HpackDecoder::HpackDecoder(HpackDecoder&&) noexcept = default;
+
+HpackStatus HpackDecoder::decode(const uint8_t* data, size_t len,
+                                 std::vector<HpackHeader>* out) {
+    if (data == nullptr || out == nullptr) return HpackStatus::TooShort;
+    if (len == 0) return HpackStatus::Ok;
+    DynTable& dyn = impl_->dyn;
     size_t pos = 0;
     while (pos < len) {  // MUT:>=
         uint8_t b = data[pos];
@@ -289,8 +294,20 @@ HpackStatus decodeHpack(const uint8_t* data, size_t len, std::vector<HpackHeader
             out->push_back(h);
         }
     }
-    if (consumed != nullptr) *consumed = pos;
     return HpackStatus::Ok;
+}
+
+HpackStatus decodeHpack(const uint8_t* data, size_t len, std::vector<HpackHeader>* out,
+                        size_t* consumed) {
+    if (data == nullptr || out == nullptr) return HpackStatus::TooShort;
+    if (len == 0) {
+        if (consumed != nullptr) *consumed = 0;
+        return HpackStatus::Ok;
+    }
+    HpackDecoder d;
+    HpackStatus s = d.decode(data, len, out);
+    if (s == HpackStatus::Ok && consumed != nullptr) *consumed = len;
+    return s;
 }
 
 std::vector<uint8_t> huffmanEncode(const std::string& s) {
