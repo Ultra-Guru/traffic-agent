@@ -27,12 +27,17 @@ data class MitmConfig(
     val workers: Int = 8,
     /** Trust every origin certificate (capture tooling; App toggles it). */
     val trustOriginAll: Boolean = false,
+    /** Reuse origin sockets across requests (keep-alive pooling). */
+    val originKeepAlive: Boolean = true,
+    /** WebSocket relays are dropped after this much idle time. */
+    val wsIdleTimeoutMs: Int = 120_000,
     val interceptors: List<ExchangeInterceptor> = emptyList(),
 ) {
     init {
         require(captureMaxBodyBytes >= 0) { "captureMaxBodyBytes must not be negative" }
         require(connectTimeoutMs > 0) { "connectTimeoutMs must be positive" }
         require(workers > 0) { "workers must be positive" }
+        require(wsIdleTimeoutMs > 0) { "wsIdleTimeoutMs must be positive" }
     }
 }
 
@@ -85,6 +90,11 @@ class MitmProxyServer(
     private val serverContext: SSLContext = TlsContexts.serverContext(ca)
     private val originContext: SSLContext = TlsContexts.originContext(config.trustOriginAll)
 
+    /** Keep-alive origin pool; disabled by config -> always fresh sockets. */
+    private val originPool = OriginConnectionPool(
+        connect = { scheme, host, port -> openOrigin(host, port, scheme) },
+    )
+
     /** Starts accepting connections; port 0 binds an ephemeral port. */
     fun start() {
         if (!running.compareAndSet(false, true)) return
@@ -109,6 +119,7 @@ class MitmProxyServer(
         }
         acceptThread?.interrupt()
         pool.shutdownNow()
+        originPool.closeAll()
     }
 
     fun isRunning(): Boolean = running.get()
@@ -357,29 +368,31 @@ class MitmProxyServer(
             responseBytes = decision.body.size.toLong()
             HttpIo.writeResponse(clientOutput, status, "MITM", responseHeaders, responseBody)
         } else {
-            // ---- forward to origin: fresh connection per request ----
+            // ---- forward to origin: keep-alive pooled connection ----
+            val originKey = OriginConnectionPool.keyOf(upstreamScheme, ctx.host, ctx.port)
+            var lease = originPool.acquire(upstreamScheme, ctx.host, ctx.port)
             try {
-                val origin = openOrigin(ctx.host, ctx.port, upstreamScheme)
-                origin.use { socket ->
-                val originOut = socket.getOutputStream()
-                val originIn = socket.getInputStream()
-                HttpIo.writeRequest(
-                    originOut, ctx.method, ctx.path, ctx.host,
-                    ctx.requestHeaders, ctx.requestBody,
-                )
-                val respHead = HttpIo.readHead(originIn) ?: throw EOFException("origin closed")
-                val respHeaders = MutableHeaders(respHead.headers)
-                status = respHead.status
-                val bodiless = ctx.method.equals("HEAD", true) ||
-                    status in 204..205 || status == 304 || status in 100..199
-                val raw = if (bodiless) ByteArray(0) else readResponseBody(originIn, respHeaders)
-                responseHeaders = respHeaders
-                responseBody = raw
-                responseBytes = respHead.raw.size + raw.size.toLong()
+                val result: OriginExchange = try {
+                    exchangeWithOrigin(lease.socket, ctx)
+                } catch (e: IOException) {
+                    if (lease.reused) {
+                        // Stale pooled socket: the origin closed it while idle.
+                        // Retry exactly once on a fresh connection.
+                        originPool.release(lease, originKey, reusable = false)
+                        lease = originPool.acquire(upstreamScheme, ctx.host, ctx.port)
+                        exchangeWithOrigin(lease.socket, ctx)
+                    } else {
+                        throw e
+                    }
+                }
+                status = result.head.status
+                responseHeaders = result.headers
+                responseBody = result.body
+                responseBytes = result.head.raw.size + result.body.size.toLong()
                 if (config.interceptors.isNotEmpty()) {
                     ctx.status = status
-                    ctx.responseHeaders.replaceWith(respHeaders)
-                    ctx.responseBody = raw
+                    ctx.responseHeaders.replaceWith(result.headers)
+                    ctx.responseBody = result.body
                     for (interceptor in config.interceptors) {
                         try {
                             interceptor.onResponse(ctx)
@@ -389,11 +402,26 @@ class MitmProxyServer(
                     }
                     status = ctx.status
                     responseHeaders = ctx.responseHeaders
-                    responseBody = ctx.responseBody ?: raw
+                    responseBody = ctx.responseBody ?: result.body
                 }
                 HttpIo.writeResponse(clientOutput, status, reasonFor(status), responseHeaders, responseBody)
+
+                if (status == 101) {
+                    // WebSocket upgrade: the handshake exchange is emitted
+                    // below, then the tunnel relays raw bytes both ways.
+                    emit(
+                        exchangeId, started, ctx, decision, status, responseHeaders, responseBody,
+                        requestBytes, responseBytes, tls, error,
+                    )
+                    relayWebsocket(clientInput, clientOutput, lease.socket)
+                    originPool.release(lease, originKey, reusable = false)
+                    return false
                 }
+                val reusable = config.originKeepAlive && !result.eofDelimited &&
+                    result.headers.get("connection")?.contains("close", true) != true
+                originPool.release(lease, originKey, reusable)
             } catch (e: IOException) {
+                originPool.release(lease, originKey, reusable = false)
                 error = e.message ?: e.javaClass.simpleName
                 try {
                     clientOutput.write(
@@ -463,6 +491,96 @@ class MitmProxyServer(
         }
     }
 
+    /** One complete origin exchange plus whether pooling may reuse the socket. */
+    private class OriginExchange(
+        val head: HttpIo.Head,
+        val headers: MutableHeaders,
+        val body: ByteArray,
+        /** True when the body was EOF-delimited: the origin will close. */
+        val eofDelimited: Boolean,
+    )
+
+    /** Writes the request, reads the full response head+body from the origin. */
+    private fun exchangeWithOrigin(socket: Socket, ctx: MutableProxyExchange): OriginExchange {
+        val originOut = socket.getOutputStream()
+        val originIn = socket.getInputStream()
+        HttpIo.writeRequest(
+            originOut, ctx.method, ctx.path, ctx.host,
+            ctx.requestHeaders, ctx.requestBody,
+            keepAlive = config.originKeepAlive,
+        )
+        val respHead = HttpIo.readHead(originIn) ?: throw EOFException("origin closed")
+        val respHeaders = MutableHeaders(respHead.headers)
+        val st = respHead.status ?: 0
+        val bodiless = ctx.method.equals("HEAD", true) ||
+            st in 204..205 || st == 304 || st in 100..199
+        if (bodiless || st == 101) {
+            return OriginExchange(respHead, respHeaders, ByteArray(0), eofDelimited = false)
+        }
+        if (respHeaders.get("transfer-encoding")?.contains("chunked", true) == true) {
+            return OriginExchange(respHead, respHeaders, HttpIo.readChunked(originIn), false)
+        }
+        val len = respHeaders.get("content-length")?.trim()?.toIntOrNull()
+        if (len != null && len >= 0) {
+            return OriginExchange(respHead, respHeaders, HttpIo.readFully(originIn, len), false)
+        }
+        // EOF-delimited body (origin used Connection: close)
+        return OriginExchange(respHead, respHeaders, HttpIo.readUntilEof(originIn), true)
+    }
+
+    /**
+     * Full-duplex websocket relay: pumps bytes client<->origin until either
+     * side closes or [MitmConfig.wsIdleTimeoutMs] of quiet passes. Called
+     * after the 101 handshake was already written back to the client.
+     */
+    private fun relayWebsocket(clientInput: InputStream, clientOutput: OutputStream, origin: Socket) {
+        val originIn = origin.getInputStream()
+        val originOut = origin.getOutputStream()
+        try {
+            origin.soTimeout = config.wsIdleTimeoutMs
+        } catch (_: IOException) {
+        }
+        val c2s = Thread {
+            try {
+                clientInput.copyTo(originOut, 16 * 1024)
+            } catch (_: IOException) {
+            }
+            try {
+                origin.shutdownOutput()
+            } catch (_: IOException) {
+            }
+        }
+        val s2c = Thread {
+            try {
+                originIn.copyTo(clientOutput, 16 * 1024)
+            } catch (_: IOException) {
+            }
+            try {
+                clientOutput.flush()
+            } catch (_: IOException) {
+            }
+        }
+        c2s.isDaemon = true
+        s2c.isDaemon = true
+        c2s.start()
+        s2c.start()
+        try {
+            // Either pump finishing ends the relay; the join is bounded by the
+            // idle timeout already configured on the sockets.
+            while (c2s.isAlive && s2c.isAlive) {
+                c2s.join(500)
+                if (!c2s.isAlive) break
+            }
+        } catch (_: InterruptedException) {
+        }
+        c2s.interrupt()
+        s2c.interrupt()
+        try {
+            origin.close()
+        } catch (_: IOException) {
+        }
+    }
+
     /** Opens a plain or TLS connection to the origin (protected via [socketProtector]). */
     private fun openOrigin(host: String, port: Int, scheme: String): Socket {
         val plain = Socket()
@@ -492,16 +610,6 @@ class MitmProxyServer(
         val len = headers.get("content-length")?.trim()?.toIntOrNull() ?: return null
         if (len <= 0) return null
         return HttpIo.readFully(input, len)
-    }
-
-    private fun readResponseBody(input: InputStream, headers: MutableHeaders): ByteArray {
-        if (headers.get("transfer-encoding")?.contains("chunked", true) == true) {
-            return HttpIo.readChunked(input)
-        }
-        val len = headers.get("content-length")?.trim()?.toIntOrNull()
-        if (len != null && len >= 0) return HttpIo.readFully(input, len)
-        // EOF-delimited body (origin used Connection: close)
-        return HttpIo.readUntilEof(input)
     }
 
     private fun decodeBody(body: ByteArray?, encoding: String?): ByteArray? {
@@ -676,11 +784,12 @@ internal object HttpIo {
         host: String,
         headers: MutableHeaders,
         body: ByteArray?,
+        keepAlive: Boolean = false,
     ) {
         val sb = StringBuilder()
         sb.append(method).append(' ').append(path).append(" HTTP/1.1\r\n")
         sb.append("Host: ").append(host).append("\r\n")
-        sb.append("Connection: close\r\n")
+        sb.append(if (keepAlive) "Connection: keep-alive\r\n" else "Connection: close\r\n")
         for ((name, value) in headers.toList()) {
             if (name.equals("host", true) || name.lowercase() in hopByHop) continue
             sb.append(name).append(": ").append(value).append("\r\n")
@@ -705,18 +814,31 @@ internal object HttpIo {
     ) {
         val sb = StringBuilder()
         sb.append("HTTP/1.1 ").append(status ?: 502).append(' ').append(reason).append("\r\n")
+        // 101 Switching Protocols: the Upgrade/Connection headers ARE the
+        // payload — hop-by-hop filtering must not strip them, and a
+        // Content-Length would end the websocket before it starts.
+        val upgrade = status == 101
         var hasDate = false
         for ((name, value) in headers.toList()) {
-            if (name.lowercase() in hopByHop || name.equals("content-length", true)) continue
-            if (name.equals("date", true)) hasDate = true
+            val lower = name.lowercase()
+            if (lower == "content-length") continue
+            if (!upgrade && lower in hopByHop) continue
+            if (upgrade && lower == "connection" && value.contains("close", true)) continue
+            if (lower == "date") hasDate = true
             sb.append(name).append(": ").append(value).append("\r\n")
         }
-        if (!hasDate) sb.append("Date: ").append(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
-            .format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC))).append("\r\n")
-        sb.append("Content-Length: ").append(body?.size ?: 0).append("\r\n")
+        if (upgrade) {
+            if (headers.get("connection") == null) {
+                sb.append("Connection: Upgrade\r\n")
+            }
+        } else {
+            if (!hasDate) sb.append("Date: ").append(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
+                .format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC))).append("\r\n")
+            sb.append("Content-Length: ").append(body?.size ?: 0).append("\r\n")
+        }
         sb.append("\r\n")
         output.write(sb.toString().toByteArray(Charsets.ISO_8859_1))
-        if (body != null && body.isNotEmpty()) output.write(body)
+        if (!upgrade && body != null && body.isNotEmpty()) output.write(body)
         output.flush()
     }
 }
