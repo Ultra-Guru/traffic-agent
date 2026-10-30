@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
  * Byte-level pcapng builder for tests: emits SHB + IDB + EPBs in either
  * byte order, mirroring what PcapNgWriter produces on-device.
  */
-object NgBuilder {
+internal object NgBuilder {
 
     fun shb(bigEndian: Boolean): ByteArray {
         val body = ByteSink()
@@ -72,7 +72,7 @@ object NgBuilder {
 }
 
 /** Tiny growable byte sink with endian-aware integer writers. */
-private class ByteSink {
+internal class ByteSink {
     private val buf = ArrayList<Byte>()
 
     fun bytes(b: ByteArray) = b.forEach { buf.add(it) }

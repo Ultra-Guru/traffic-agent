@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import java.net.Socket
 
 /** Fake socket for pool semantics: connection state is hand-driven. */
-private class FakeSocket : Socket() {
+internal class FakeSocket : Socket() {
     var fakeClosed = false
 
     override fun isConnected(): Boolean = true
