@@ -60,47 +60,41 @@ object RuleDslParser {
         return RuleSet(rules)
     }
 
-    /** Parses one `rule ...` definition starting after the `rule` keyword. */
-    private fun parseRule(tokens: List<Tok>, start: Int): Pair<Rule, Int> {
-        var i = start
-        val name = expectIdent(tokens, i, "rule name").also { i++ }
+    private data class Modifiers(val priority: Int, val enabled: Boolean, val next: Int)
 
+    /** Consumes the `priority N / enabled / disabled` prefix of a rule. */
+    private fun parseModifiers(tokens: List<Tok>, start: Int, ruleName: String): Modifiers {
         var priority = 0
         var enabled = true
-        while (true) {
-            val t = tokens.getOrNull(i) as? Tok.ModifierKeyword ?: break
-            when (t.word) {
-                "priority" -> {
-                    priority = expectInt(tokens, i + 1, "priority")
-                    i += 2
-                }
-                "enabled" -> {
-                    enabled = true
-                    i++
-                }
-                "disabled" -> {
-                    enabled = false
-                    i++
-                }
-                // "when" / "then" terminate the modifier list.
-                else -> break
+        var i = start
+        val modifiable = setOf("priority", "enabled", "disabled")
+        while ((tokens.getOrNull(i) as? Tok.ModifierKeyword)?.word in modifiable) {
+            val t = tokens[i] as Tok.ModifierKeyword
+            if (t.word == "priority") {
+                priority = expectInt(tokens, i + 1, "priority of '$ruleName'")
+                i += 2
+            } else {
+                enabled = t.word != "disabled"
+                i++
             }
         }
+        return Modifiers(priority, enabled, i)
+    }
 
-        expectKeyword(tokens, i, "when").also { i++ }
-        val (condition, afterExpr) = parseOr(tokens, i)
-        i = afterExpr
+    private data class ActionParams(
+        val rate: Int? = null,
+        val status: Int? = null,
+        val body: String? = null,
+        val tagName: String? = null,
+    )
 
-        expectKeyword(tokens, i, "then").also { i++ }
-        val actionTok = tokens.getOrNull(i) as? Tok.ActionKeyword
-            ?: throw IllegalArgumentException("expected action at rule '$name', got ${tokens.getOrNull(i)?.describe() ?: "end of input"}")
-        i++
-        val action = actionTok.action
-
+    /** Consumes trailing `rate=/status=/body=/name=` params after the action. */
+    private fun parseActionParams(tokens: List<Tok>, start: Int): Pair<ActionParams, Int> {
         var rate: Int? = null
         var status: Int? = null
         var body: String? = null
         var tagName: String? = null
+        var i = start
         while (i < tokens.size && tokens[i] is Tok.Param) {
             val p = tokens[i] as Tok.Param
             when (p.key) {
@@ -111,17 +105,42 @@ object RuleDslParser {
             }
             i++
         }
+        return ActionParams(rate, status, body, tagName) to i
+    }
+
+    /** Parses one `rule ...` definition starting after the `rule` keyword. */
+    private fun parseRule(tokens: List<Tok>, start: Int): Pair<Rule, Int> {
+        var i = start
+        val name = expectIdent(tokens, i, "rule name").also { i++ }
+
+        val mods = parseModifiers(tokens, i, name)
+        i = mods.next
+
+        expectKeyword(tokens, i, "when").also { i++ }
+        val (condition, afterExpr) = parseOr(tokens, i)
+        i = afterExpr
+
+        expectKeyword(tokens, i, "then").also { i++ }
+        val actionTok = tokens.getOrNull(i) as? Tok.ActionKeyword
+            ?: throw IllegalArgumentException(
+                "expected action at rule '$name', got ${tokens.getOrNull(i)?.describe() ?: "end of input"}",
+            )
+        i++
+        val action = actionTok.action
+
+        val (params, afterParams) = parseActionParams(tokens, i)
+        i = afterParams
 
         val rule = Rule(
             name = name,
-            priority = priority,
-            enabled = enabled,
+            priority = mods.priority,
+            enabled = mods.enabled,
             action = action,
             condition = condition,
-            throttleRateKibPerS = rate,
-            mockStatus = status,
-            mockBody = body,
-            tagName = tagName,
+            throttleRateKibPerS = params.rate,
+            mockStatus = params.status,
+            mockBody = params.body,
+            tagName = params.tagName,
         )
         return rule to i
     }
@@ -166,27 +185,29 @@ object RuleDslParser {
     }
 
     private fun parsePrimary(tokens: List<Tok>, start: Int): Pair<RuleCondition, Int> {
-        val t = tokens.getOrNull(start)
+        val t = requireNotNull(tokens.getOrNull(start)) { "unexpected end of condition" }
         if (t is Tok.OpenParen) {
             val (expr, after) = parseOr(tokens, start + 1)
-            if (tokens.getOrNull(after) !is Tok.CloseParen) {
-                throw IllegalArgumentException("expected ')' at token ${after}")
-            }
+            require(tokens.getOrNull(after) is Tok.CloseParen) { "expected ')' at token ${after}" }
             return expr to after + 1
         }
-        if (t == null) throw IllegalArgumentException("unexpected end of condition")
 
         // `true` literal for empty-match rules.
         if (t is Tok.Ident && t.value == "true") {
             return RuleCondition.Always to start + 1
         }
 
-        val field = (t as? Tok.Ident)?.let { RuleField.fromToken(it.value) }
-            ?: throw IllegalArgumentException("expected field name, got ${t.describe()}")
+        val fieldTok = t as? Tok.Ident
+        requireNotNull(fieldTok) { "expected field name, got ${t.describe()}" }
+        val field = RuleField.fromToken(fieldTok.value)
+        requireNotNull(field) { "unknown field '${fieldTok.value}'" }
         val opTok = tokens.getOrNull(start + 1) as? Tok.Op
-            ?: throw IllegalArgumentException("expected operator after '${field.displayName}', got ${tokens.getOrNull(start + 1)?.describe() ?: "end"}")
+        requireNotNull(opTok) {
+            "expected operator after '${field.displayName}', got " +
+                "${tokens.getOrNull(start + 1)?.describe() ?: "end"}"
+        }
         val op = RuleOp.fromToken(opTok.symbol)
-            ?: throw IllegalArgumentException("unknown operator '${opTok.symbol}'")
+        requireNotNull(op) { "unknown operator '${opTok.symbol}'" }
 
         // Value: single literal or comma-separated list (only for `in`).
         val (value, after) = parseValue(tokens, start + 2, op)
@@ -194,20 +215,22 @@ object RuleDslParser {
     }
 
     private fun parseValue(tokens: List<Tok>, start: Int, op: RuleOp): Pair<ConditionValue, Int> {
-        val first = tokens.getOrNull(start)
-            ?: throw IllegalArgumentException("expected value after operator '${op.symbol}'")
-        val firstValue = first.toConditionValue()
-            ?: throw IllegalArgumentException("expected value, got ${first.describe()}")
+        val first = requireNotNull(tokens.getOrNull(start)) {
+            "expected value after operator '${op.symbol}'"
+        }
+        val firstValue = requireNotNull(first.toConditionValue()) {
+            "expected value, got ${first.describe()}"
+        }
         var i = start + 1
         if (op != RuleOp.IN) return firstValue to i
 
         val items = mutableListOf(firstValue)
         while (tokens.getOrNull(i) is Tok.Comma) {
-            val next = tokens.getOrNull(i + 1)
-                ?: throw IllegalArgumentException("dangling ',' in list value")
+            val next = requireNotNull(tokens.getOrNull(i + 1)) { "dangling ',' in list value" }
             items.add(
-                next.toConditionValue()
-                    ?: throw IllegalArgumentException("expected value after ',', got ${next.describe()}"),
+                requireNotNull(next.toConditionValue()) {
+                    "expected value after ',', got ${next.describe()}"
+                },
             )
             i += 2
         }
@@ -287,108 +310,111 @@ object RuleDslParser {
         }
     }
 
+    /** Scans a double-quoted string with backslash escapes; [start] points at the opening quote. */
+    private fun scanQuoted(text: String, start: Int, what: String): Pair<String, Int> {
+        val n = text.length
+        val sb = StringBuilder()
+        var j = start + 1
+        while (j < n && text[j] != '"') {
+            if (text[j] == '\\' && j + 1 < n) {
+                sb.append(unescape(text[j + 1]))
+                j += 2
+            } else {
+                sb.append(text[j])
+                j++
+            }
+        }
+        require(j < n) { "unterminated $what at offset $start" }
+        return sb.toString() to j + 1
+    }
+
+    /** Scans a `word=value` parameter; [i] points at the '='. */
+    private fun scanParam(text: String, word: String, i: Int): Pair<Tok.Param, Int> {
+        val n = text.length
+        return if (i + 1 < n && text[i + 1] == '"') {
+            val (value, next) = scanQuoted(text, i + 1, "param string for '$word'")
+            Tok.Param(word, value) to next
+        } else {
+            var k = i + 1
+            while (k < n && !text[k].isWhitespace()) k++
+            Tok.Param(word, text.substring(i + 1, k)) to k
+        }
+    }
+
+    /** Single-character punctuation: ( ) , */
+    private fun tokenizePunct(c: Char): Tok = when (c) {
+        '(' -> Tok.OpenParen
+        ')' -> Tok.CloseParen
+        ',' -> Tok.Comma
+        else -> throw IllegalArgumentException("unexpected punctuation '$c'")
+    }
+
+    /** Dispatches one token starting at [i]; returns the next index. */
+    private fun tokenizeOne(text: String, i: Int, tokens: MutableList<Tok>): Int {
+        val n = text.length
+        val c = text[i]
+        return when {
+            c.isWhitespace() -> i + 1
+            c == '#' -> emit(tokens, tokenizeComment(text, i))
+            c == '"' -> emit(tokens, scanQuoted(text, i, "string").let { (v, next) -> Tok.StrLit(v) to next })
+            c in "()," -> {
+                tokens.add(tokenizePunct(c))
+                i + 1
+            }
+            c == '>' || c == '<' || c == '!' || c == '=' -> emit(tokens, tokenizeOperator(text, i))
+            c.isDigit() || (c == '-' && i + 1 < n && text[i + 1].isDigit()) ->
+                emit(tokens, tokenizeInt(text, i))
+            else -> emit(tokens, tokenizeWord(text, i))
+        }
+    }
+
+    private inline fun <reified T : Tok> emit(tokens: MutableList<Tok>, pair: Pair<T, Int>): Int {
+        tokens.add(pair.first)
+        return pair.second
+    }
+
     private fun tokenize(text: String): List<Tok> {
         val tokens = mutableListOf<Tok>()
         var i = 0
-        val n = text.length
-        while (i < n) {
-            val c = text[i]
-            when {
-                c == ' ' || c == '\t' || c == '\r' || c == '\n' -> i++
-                c == '#' -> {
-                    val end = text.indexOf('\n', i)
-                    val stop = if (end == -1) n else end
-                    tokens.add(Tok.Comment(text.substring(i + 1, stop)))
-                    i = stop
-                }
-                c == '"' -> {
-                    val sb = StringBuilder()
-                    var j = i + 1
-                    while (j < n && text[j] != '"') {
-                        if (text[j] == '\\' && j + 1 < n) {
-                            sb.append(unescape(text[j + 1]))
-                            j += 2
-                        } else {
-                            sb.append(text[j])
-                            j++
-                        }
-                    }
-                    if (j >= n) throw IllegalArgumentException("unterminated string at offset $i")
-                    tokens.add(Tok.StrLit(sb.toString()))
-                    i = j + 1
-                }
-                c == '(' -> {
-                    tokens.add(Tok.OpenParen)
-                    i++
-                }
-                c == ')' -> {
-                    tokens.add(Tok.CloseParen)
-                    i++
-                }
-                c == ',' -> {
-                    tokens.add(Tok.Comma)
-                    i++
-                }
-                c == '>' || c == '<' || c == '!' || c == '=' -> {
-                    // Multi-char operators: >= <= != =
-                    if (i + 1 < n && text[i + 1] == '=') {
-                        tokens.add(Tok.Op(text.substring(i, i + 2)))
-                        i += 2
-                    } else if (c == '=') {
-                        tokens.add(Tok.Op("="))
-                        i++
-                    } else if (c == '!' ) {
-                        throw IllegalArgumentException("lone '!' at offset $i (use !=)")
-                    } else {
-                        tokens.add(Tok.Op(c.toString()))
-                        i++
-                    }
-                }
-                c.isDigit() || (c == '-' && i + 1 < n && text[i + 1].isDigit()) -> {
-                    var j = i
-                    while (j < n && text[j].isDigit()) j++
-                    tokens.add(Tok.IntLit(text.substring(i, j).toLong()))
-                    i = j
-                }
-                else -> {
-                    var j = i
-                    while (j < n && !text[j].isWhitespace() && text[j] !in "()\",#<>!=") j++
-                    if (j == i) {
-                        throw IllegalArgumentException("unexpected character '$c' at offset $i")
-                    }
-                    val word = text.substring(i, j)
-                    i = j
-                    // word=param form
-                    if (i < n && text[i] == '=') {
-                        // peek the param value: string or bare token
-                        if (i + 1 < n && text[i + 1] == '"') {
-                            val sb = StringBuilder()
-                            var k = i + 2
-                            while (k < n && text[k] != '"') {
-                                if (text[k] == '\\' && k + 1 < n) {
-                                    sb.append(unescape(text[k + 1]))
-                                    k += 2
-                                } else {
-                                    sb.append(text[k])
-                                    k++
-                                }
-                            }
-                            if (k >= n) throw IllegalArgumentException("unterminated param string for '$word'")
-                            tokens.add(Tok.Param(word, sb.toString()))
-                            i = k + 1
-                        } else {
-                            var k = i + 1
-                            while (k < n && !text[k].isWhitespace()) k++
-                            tokens.add(Tok.Param(word, text.substring(i + 1, k)))
-                            i = k
-                        }
-                    } else {
-                        tokens.add(keywordOrIdent(word))
-                    }
-                }
-            }
+        while (i < text.length) {
+            i = tokenizeOne(text, i, tokens)
         }
         return tokens
+    }
+
+    private fun tokenizeComment(text: String, start: Int): Pair<Tok.Comment, Int> {
+        val end = text.indexOf('\n', start)
+        val stop = if (end == -1) text.length else end
+        return Tok.Comment(text.substring(start + 1, stop)) to stop
+    }
+
+    private fun tokenizeOperator(text: String, i: Int): Pair<Tok.Op, Int> {
+        val c = text[i]
+        if (i + 1 < text.length && text[i + 1] == '=') {
+            return Tok.Op(text.substring(i, i + 2)) to i + 2
+        }
+        if (c == '=') return Tok.Op("=") to i + 1
+        require(c != '!') { "lone '!' at offset $i (use !=)" }
+        return Tok.Op(c.toString()) to i + 1
+    }
+
+    private fun tokenizeInt(text: String, start: Int): Pair<Tok.IntLit, Int> {
+        var j = start
+        while (j < text.length && text[j].isDigit()) j++
+        return Tok.IntLit(text.substring(start, j).toLong()) to j
+    }
+
+    private fun tokenizeWord(text: String, start: Int): Pair<Tok, Int> {
+        val n = text.length
+        var j = start
+        while (j < n && !text[j].isWhitespace() && text[j] !in "()\",#<>!=") j++
+        require(j > start) { "unexpected character '${text[start]}' at offset $start" }
+        val word = text.substring(start, j)
+        // `word=param` form
+        if (j < n && text[j] == '=') {
+            return scanParam(text, word, j)
+        }
+        return keywordOrIdent(word) to j
     }
 
     private fun keywordOrIdent(word: String): Tok = when (word.lowercase()) {

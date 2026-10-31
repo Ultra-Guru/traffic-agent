@@ -16,6 +16,7 @@ kotlin {
 
 dependencies {
     api(project(":core-capture"))
+    api(project(":core-analysis"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

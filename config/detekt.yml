@@ -30,6 +30,10 @@ style:
     maxLineLength: 140
   UnusedPrivateMember:
     ignoreAnnotated: ["Preview"]
+  # Recursive-descent parsers legitimately raise several distinct
+  # IllegalArgumentExceptions per function for malformed input positions.
+  ThrowsCount:
+    max: 3
 
 naming:
   FunctionNaming:

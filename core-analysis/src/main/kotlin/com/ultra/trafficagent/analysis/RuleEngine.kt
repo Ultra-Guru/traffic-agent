@@ -202,42 +202,50 @@ fun RuleCondition.matches(request: CapturedRequest): Boolean = when (this) {
 }
 
 private fun RuleCondition.Field.evaluateField(request: CapturedRequest): Boolean {
-    val actual: Any? = when (field) {
-        RuleField.HOST -> request.host.lowercase()
-        RuleField.PATH -> request.path
-        RuleField.METHOD -> request.method.uppercase()
-        RuleField.STATUS -> request.status?.toLong()
-        RuleField.BYTES_UP -> request.bytesUp
-        RuleField.BYTES_DOWN -> request.bytesDown
-        RuleField.TOTAL -> request.totalSize
-        RuleField.DURATION -> request.durationMs ?: 0L
-        RuleField.PROTOCOL -> request.protocol.name.lowercase()
-        RuleField.MIME -> (request.responseMime ?: request.contentType)?.lowercase()
-        RuleField.UID -> request.appUid?.toLong()
-        RuleField.JA3 -> request.ja3?.lowercase()
-        RuleField.ERROR -> request.error?.lowercase()
-        RuleField.CATEGORY -> DomainClassifier.classify(request.host).category.name.lowercase()
-    }
+    val actual: Any? = actualValueOf(request)
     if (actual == null) {
-        // Missing field: only "!=" and "not in" can be true.
+        // Missing field: only "!=" can be true.
         return op == RuleOp.NEQ
     }
-    return when (op) {
-        RuleOp.EQ -> compareEquals(actual, value)
-        RuleOp.NEQ -> !compareEquals(actual, value)
-        RuleOp.GT -> compareOrder(actual, value) > 0
-        RuleOp.LT -> compareOrder(actual, value) < 0
-        RuleOp.GTE -> compareOrder(actual, value) >= 0
-        RuleOp.LTE -> compareOrder(actual, value) <= 0
-        RuleOp.CONTAINS -> actual.toString().contains(value.asText(), ignoreCase = true)
-        RuleOp.STARTS_WITH -> actual.toString().startsWith(value.asText(), ignoreCase = true)
-        RuleOp.ENDS_WITH -> actual.toString().endsWith(value.asText(), ignoreCase = true)
-        RuleOp.MATCHES -> Regex(value.asText()).containsMatchIn(actual.toString())
-        RuleOp.IN -> when (value) {
-            is ConditionValue.ListOf -> value.items.any { compareEquals(actual, it) }
-            else -> compareEquals(actual, value)
-        }
-    }
+    return applyOperator(actual)
+}
+
+/** Resolves the rule field to the request's current value (null = absent). */
+private fun RuleCondition.Field.actualValueOf(request: CapturedRequest): Any? = when (field) {
+    RuleField.HOST -> request.host.lowercase()
+    RuleField.PATH -> request.path
+    RuleField.METHOD -> request.method.uppercase()
+    RuleField.STATUS -> request.status?.toLong()
+    RuleField.BYTES_UP -> request.bytesUp
+    RuleField.BYTES_DOWN -> request.bytesDown
+    RuleField.TOTAL -> request.totalSize
+    RuleField.DURATION -> request.durationMs ?: 0L
+    RuleField.PROTOCOL -> request.protocol.name.lowercase()
+    RuleField.MIME -> (request.responseMime ?: request.contentType)?.lowercase()
+    RuleField.UID -> request.appUid?.toLong()
+    RuleField.JA3 -> request.ja3?.lowercase()
+    RuleField.ERROR -> request.error?.lowercase()
+    RuleField.CATEGORY -> DomainClassifier.classify(request.host).category.name.lowercase()
+}
+
+/** Applies the comparison operator to a resolved value. */
+private fun RuleCondition.Field.applyOperator(actual: Any): Boolean = when (op) {
+    RuleOp.EQ -> compareEquals(actual, value)
+    RuleOp.NEQ -> !compareEquals(actual, value)
+    RuleOp.GT -> compareOrder(actual, value) > 0
+    RuleOp.LT -> compareOrder(actual, value) < 0
+    RuleOp.GTE -> compareOrder(actual, value) >= 0
+    RuleOp.LTE -> compareOrder(actual, value) <= 0
+    RuleOp.CONTAINS -> actual.toString().contains(value.asText(), ignoreCase = true)
+    RuleOp.STARTS_WITH -> actual.toString().startsWith(value.asText(), ignoreCase = true)
+    RuleOp.ENDS_WITH -> actual.toString().endsWith(value.asText(), ignoreCase = true)
+    RuleOp.MATCHES -> Regex(value.asText()).containsMatchIn(actual.toString())
+    RuleOp.IN -> applyIn(actual)
+}
+
+private fun RuleCondition.Field.applyIn(actual: Any): Boolean = when (value) {
+    is ConditionValue.ListOf -> value.items.any { compareEquals(actual, it) }
+    else -> compareEquals(actual, value)
 }
 
 private fun compareEquals(actual: Any?, value: ConditionValue): Boolean = when (value) {
