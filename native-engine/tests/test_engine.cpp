@@ -100,11 +100,16 @@ TA_TEST(engine_detects_tls_sni_from_packet) {
     auto hello = tb::clientHello("secure.example.net");
     auto pkt = tb::ipv4(tb::tcpSegment(7000, TcpHeader::kPsh | TcpHeader::kAck, hello));
     e.feedPacket(pkt.data(), pkt.size(), 17ULL);
-    TA_CHECK_EQ(e.events().size(), static_cast<size_t>(2));
+    TA_CHECK_EQ(e.events().size(), static_cast<size_t>(3));
     TA_CHECK(e.events()[0].kind == EngineEvent::Kind::TlsSniDetected);
     TA_CHECK_ST(e.events()[0].text, "secure.example.net");
     TA_CHECK(e.events()[1].kind == EngineEvent::Kind::TlsJa3Detected);
     TA_CHECK(e.events()[1].text.rfind("secure.example.net|", 0) == 0);
+    TA_CHECK(e.events()[2].kind == EngineEvent::Kind::TlsJa4Detected);
+    // JA4 text: "sni|t12d0100-..." (clientHello offers one cipher, SNI only).
+    TA_CHECK(e.events()[2].text.rfind("secure.example.net|", 0) == 0);
+    // Part A shape: t12d (TLS1.2, domain SNI) 01 cipher, 01 ext (SNI), no ALPN.
+    TA_CHECK(e.events()[2].text.find("|t12d0101-") != std::string::npos);
 }
 
 TA_TEST(engine_detects_http_response) {

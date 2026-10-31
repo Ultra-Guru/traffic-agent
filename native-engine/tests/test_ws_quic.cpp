@@ -115,9 +115,6 @@ Bytes wsFrameBytes(bool fin, uint8_t opcode, const Bytes& payload, bool mask = f
     Bytes f;
     f.push_back(static_cast<uint8_t>((fin ? 0x80u : 0x00u) | opcode));
     f.push_back(static_cast<uint8_t>((mask ? 0x80u : 0x00u) | (payload.size() & 0x7Fu)));
-    for (uint8_t b : payload) {
-        // caller-visible payload stays plain; masking applied inside
-    }
     if (mask) {
         // 4 mask bytes: use the same key repeated for the test
         for (int i = 0; i < 4; ++i) f.push_back(maskKey);

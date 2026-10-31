@@ -11,8 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  native:
-    name: "Native engine: C++ tests + mutation"
+  # ─────────────────────────── C++ engine (5 checks) ───────────────────────────
+
+  cpp-unit:
+    name: "Check 1/10 · C++ unit tests (cmake + ctest)"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -24,11 +26,54 @@ jobs:
           cmake --build native-engine/build -j"$(nproc)"
           ctest --test-dir native-engine/build --output-on-failure
 
+  cpp-strict:
+    name: "Check 2/10 · C++ strict warnings (-Wall -Wextra -Werror)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile everything with warnings as errors
+        run: |
+          g++ -std=c++17 -O1 -Wall -Wextra -Werror -Wpedantic -Wshadow \
+              -I native-engine/include \
+              $(ls native-engine/src/*.cpp | grep -v jni) \
+              native-engine/tests/*.cpp \
+              -o /tmp/engine_tests_strict -lz -lpthread
+          /tmp/engine_tests_strict | tail -1
+
+  cpp-mutation:
+    name: "Check 3/10 · C++ mutation gate (score >= 90)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Mutation testing (source-annotated mutator)
         run: python3 -u scripts/native_mutate.py --min-score 90
 
-  python:
-    name: "Python agent: pytest + mutmut"
+  # ─────────────────────────── Python agent (2 checks) ───────────────────────────
+
+  python-unit:
+    name: "Check 4/10 · Python unit tests (pytest)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: pip install pytest
+
+      - name: Unit tests
+        working-directory: python
+        run: python -m pytest tests -q
+
+  python-mutation:
+    name: "Check 5/10 · Python mutation gate (mutmut >= 70)"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -39,11 +84,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install tooling
-        run: pip install pytest mutmut==3.8.0
-
-      - name: Unit tests
-        working-directory: python
-        run: python -m pytest tests -q
+        run: pip install mutmut==3.8.0
 
       - name: Mutation testing (mutmut)
         working-directory: python
@@ -52,8 +93,10 @@ jobs:
       - name: Mutation gate
         run: python3 scripts/mutmut_gate.py --min-score 70
 
-  kotlin:
-    name: "Kotlin core: JUnit + PIT"
+  # ─────────────────────────── Kotlin core (3 checks) ───────────────────────────
+
+  kotlin-unit:
+    name: "Check 6/10 · Kotlin JVM unit tests (JUnit 5)"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -69,6 +112,44 @@ jobs:
       - name: Unit tests (JVM core modules)
         run: ./gradlew -Pta.skipAndroid allUnitTests
 
+  kotlin-lint:
+    name: "Check 7/10 · Kotlin static analysis (detekt + baseline)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Detekt (new violations fail the build)
+        run: ./gradlew -Pta.skipAndroid detekt
+
+      - name: Upload detekt report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detekt-reports
+          path: "*/build/reports/detekt/**"
+
+  kotlin-mutation:
+    name: "Check 8/10 · Kotlin mutation gate (PIT >= 65)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
       - name: Mutation testing (PIT / pitest)
         run: ./gradlew -Pta.skipAndroid allPitest
 
@@ -82,8 +163,10 @@ jobs:
           name: pitest-reports
           path: core-*/build/reports/pitest/**
 
-  android:
-    name: "Android app: assembleDebug (M3 + NDK)"
+  # ─────────────────────────── Android app (1 check) ───────────────────────────
+
+  android-build:
+    name: "Check 9/10 · Android assembleDebug (M3 + NDK)"
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -106,3 +189,30 @@ jobs:
         with:
           name: traffic-agent-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+  # ─────────────────────────── Repository health (1 check) ───────────────────────────
+
+  repo-metrics:
+    name: "Check 10/10 · Repository metrics (LOC gate + stats)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate repository statistics
+        run: |
+          mkdir -p build/repo-stats
+          python3 scripts/repo_metrics.py --write build/repo-stats/stats.txt
+          cat build/repo-stats/stats.txt
+
+      - name: LOC growth gate (never regress below baseline)
+        run: python3 scripts/repo_metrics.py --gate docs/baselines/loc_baseline.txt
+
+      - name: Upload stats artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-stats
+          path: build/repo-stats/**
