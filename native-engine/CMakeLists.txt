@@ -32,6 +32,7 @@ set(ENGINE_SOURCES
     src/pcap_write.cpp
     src/export_lines.cpp
     src/packet_build.cpp
+    src/stats.cpp
     src/stack.cpp
     src/engine.cpp)
 
@@ -64,7 +65,8 @@ if (BUILD_TESTS)
         tests/test_multipart_pcapng.cpp
         tests/test_pcap_write.cpp
         tests/test_export_lines.cpp
-        tests/test_stack.cpp)
+        tests/test_stack.cpp
+        tests/test_stats.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)
     add_test(NAME engine_tests COMMAND engine_tests)
 endif()
