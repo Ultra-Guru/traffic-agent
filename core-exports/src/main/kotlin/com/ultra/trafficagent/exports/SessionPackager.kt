@@ -198,7 +198,7 @@ object FlowTimelineExporter {
         val h = (totalSec / 3600) % 24
         val m = (totalSec / 60) % 60
         val s = totalSec % 60
-        return String.format("%02d:%02d:%02d.%s", h, m, s, millis)
+        return String.format(java.util.Locale.ROOT, "%02d:%02d:%02d.%s", h, m, s, millis)
     }
 
     private fun statusText(code: Int): String = when (code) {
@@ -224,8 +224,8 @@ object FlowTimelineExporter {
         if (s.length >= width) s.take(width - 1) + " " else s.padEnd(width)
 
     private fun formatSize(bytes: Long): String = when {
-        bytes >= 1 shl 20 -> String.format("%.1f MiB", bytes / 1048576.0)
-        bytes >= 1 shl 10 -> String.format("%.1f KiB", bytes / 1024.0)
+        bytes >= 1 shl 20 -> String.format(java.util.Locale.ROOT, "%.1f MiB", bytes / 1048576.0)
+        bytes >= 1 shl 10 -> String.format(java.util.Locale.ROOT, "%.1f KiB", bytes / 1024.0)
         else -> "$bytes B"
     }
 }

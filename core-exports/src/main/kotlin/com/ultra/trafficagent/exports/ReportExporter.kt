@@ -54,7 +54,7 @@ object ReportExporter {
         sb.append("| Total | ").append(formatBytes(totalUp + totalDown)).append(" |\n")
         sb.append("| Errors | ").append(errors).append(" |\n")
         if (spanSec > 0) {
-            sb.append("| Duration | ").append(String.format("%.1f s", spanSec)).append(" |\n")
+            sb.append("| Duration | ").append(String.format(java.util.Locale.ROOT, "%.1f s", spanSec)).append(" |\n")
             sb.append("| Throughput | ")
                 .append(formatBytes(((totalUp + totalDown) / spanSec).toLong()))
                 .append("/s |\n")
@@ -151,10 +151,10 @@ object ReportExporter {
         val snap = insight.snapshot(topN = 10)
         sb.append("## DNS\n\n")
         sb.append("- Queries: ").append(snap.totalQueries)
-            .append(" (").append(String.format("%.1f", snap.queryRatePerMinute)).append("/min)\n")
+            .append(" (").append(String.format(java.util.Locale.ROOT, "%.1f", snap.queryRatePerMinute)).append("/min)\n")
         sb.append("- Unique domains: ").append(snap.uniqueDomains).append('\n')
         sb.append("- NXDOMAIN: ").append(snap.nxdomainCount)
-            .append(" (").append(String.format("%.1f%%", snap.nxdomainRatio * 100)).append(")\n")
+            .append(" (").append(String.format(java.util.Locale.ROOT, "%.1f%%", snap.nxdomainRatio * 100)).append(")\n")
         if (snap.dohDetected) sb.append("- DoH transport detected\n")
         if (snap.suspiciousDomains.isNotEmpty()) {
             sb.append("- Suspicious: ").append(snap.suspiciousDomains.take(5).joinToString(", "))
@@ -166,7 +166,7 @@ object ReportExporter {
             for (d in snap.topDomains) {
                 sb.append("| ").append(escape(d.domain))
                     .append(" | ").append(d.queries)
-                    .append(" | ").append(String.format("%.0f%%", d.nxdomainRatio * 100))
+                    .append(" | ").append(String.format(java.util.Locale.ROOT, "%.0f%%", d.nxdomainRatio * 100))
                     .append(" |\n")
             }
             sb.append('\n')
@@ -199,8 +199,8 @@ object ReportExporter {
     private fun escapeCell(s: String): String = escape(s).take(60)
 
     internal fun formatBytes(bytes: Long): String = when {
-        bytes >= 1 shl 20 -> String.format("%.1f MiB", bytes / 1048576.0)
-        bytes >= 1 shl 10 -> String.format("%.1f KiB", bytes / 1024.0)
+        bytes >= 1 shl 20 -> String.format(java.util.Locale.ROOT, "%.1f MiB", bytes / 1048576.0)
+        bytes >= 1 shl 10 -> String.format(java.util.Locale.ROOT, "%.1f KiB", bytes / 1024.0)
         else -> "$bytes B"
     }
 }
