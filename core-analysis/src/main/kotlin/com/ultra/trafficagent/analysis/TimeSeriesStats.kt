@@ -138,7 +138,7 @@ object SessionScore {
         val score = 45.0 * (1.0 - c.errorRate.coerceIn(0.0, 1.0)) +
             25.0 * (1.0 - c.slowShare.coerceIn(0.0, 1.0)) +
             20.0 * c.secureShare.coerceIn(0.0, 1.0) +
-            10.0 * (1.0 - c.nxdomainRate)
+            10.0 * (1.0 - c.nxdomainRate.coerceIn(0.0, 1.0))
         return score.toInt().coerceIn(0, 100)
     }
 
