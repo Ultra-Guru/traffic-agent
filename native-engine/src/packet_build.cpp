@@ -46,6 +46,9 @@ std::vector<uint8_t> buildTcpPacket(uint32_t srcAddr, uint32_t dstAddr,
                                      size_t len) {
     const size_t kTcpHeader = 20;
     const size_t kIpHeader = 20;
+    // IPv4 total length is a 16-bit field: refuse implausible sizes so the
+    // vector arithmetic below cannot overflow.
+    if (len > 65535 - kTcpHeader - kIpHeader) return {};
     std::vector<uint8_t> pkt(kIpHeader + kTcpHeader + len, 0);
 
     // IPv4 header
@@ -88,6 +91,7 @@ std::vector<uint8_t> buildUdpPacket(uint32_t srcAddr, uint32_t dstAddr,
                                      const uint8_t* payload, size_t len) {
     const size_t kUdpHeader = 8;
     const size_t kIpHeader = 20;
+    if (len > 65535 - kUdpHeader - kIpHeader) return {};
     std::vector<uint8_t> pkt(kIpHeader + kUdpHeader + len, 0);
 
     pkt[0] = 0x45;
@@ -131,7 +135,7 @@ bool verifyTcpChecksum(const uint8_t* ipPacket, size_t len) {
     if (parseIpv4(ipPacket, len, &ip) != Ipv4Status::Ok) return false;
     if (ip.protocol != 6) return false;  // MUT:==
     size_t transportLen = len - static_cast<size_t>(ip.headerLengthBytes());
-    if (transportLen < 20) return false;  // MUT:<=
+    if (transportLen < 20 || transportLen > 65535) return false;  // MUT:<=
     const uint8_t* seg = ipPacket + ip.headerLengthBytes();
 
     std::vector<uint8_t> pseudo(12 + transportLen, 0);

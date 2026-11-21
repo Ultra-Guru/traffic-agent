@@ -50,6 +50,8 @@ const char* kindName(EngineEvent::Kind k) {
         case EngineEvent::Kind::QuicDetected: return "quic";
         case EngineEvent::Kind::Http2HeadersDetected: return "h2";
         case EngineEvent::Kind::TlsJa3Detected: return "ja3";
+        case EngineEvent::Kind::TlsJa4Detected: return "ja4";
+        case EngineEvent::Kind::QuicInitialDetected: return "quic_initial";
         case EngineEvent::Kind::DnsMessageParsed: return "dns";
     }
     return "unknown";

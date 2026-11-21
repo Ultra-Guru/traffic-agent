@@ -125,6 +125,21 @@ std::string ipv6Text(const uint8_t* p) {
 }
 
 // Renders one answer's rdata into human-readable text.
+std::string svcbParamKey(uint16_t key) {
+    switch (key) {
+        case 0: return "mandatory";
+        case 1: return "alpn";
+        case 2: return "no-default-alpn";
+        case 3: return "port";
+        case 4: return "ipv4hint";
+        case 5: return "ech";
+        case 6: return "ipv6hint";
+        case 7: return "dohpath";
+        case 8: return "ohttp";
+        default: return "key" + std::to_string(key);
+    }
+}
+
 DnsStatus renderRdata(const uint8_t* data, size_t len, size_t pos, uint16_t type, uint16_t rdlen,
                       std::string* out) {
     if (pos + rdlen > len) return DnsStatus::MalformedRdata;  // MUT:>=
@@ -181,6 +196,49 @@ DnsStatus renderRdata(const uint8_t* data, size_t len, size_t pos, uint16_t type
                    std::to_string(rdU32(q + 12)) + " " + std::to_string(rdU32(q + 16));
             return DnsStatus::Ok;
         }
+        case 33: {  // SRV: priority weight port target
+            if (rdlen < 7) return DnsStatus::MalformedRdata;  // MUT:<=
+            size_t p = pos + 6;
+            std::string target;
+            DnsStatus s = readName(data, len, &p, &target);
+            if (s != DnsStatus::Ok) return s;
+            *out = std::to_string(rdU16(r)) + " " + std::to_string(rdU16(r + 2)) + " " +
+                   std::to_string(rdU16(r + 4)) + " " + target;
+            return DnsStatus::Ok;
+        }
+        case 257: {  // CAA: flags tag value
+            if (rdlen < 2) return DnsStatus::MalformedRdata;
+            const uint8_t caaFlags = r[0];
+            const size_t tagLen = r[1];
+            if (2 + tagLen > rdlen) return DnsStatus::MalformedRdata;  // MUT:>=
+            std::string tag(reinterpret_cast<const char*>(r + 2), tagLen);
+            std::string value(reinterpret_cast<const char*>(r + 2 + tagLen), rdlen - 2 - tagLen);
+            *out = std::to_string(caaFlags) + " " + tag + " \"" + value + "\"";
+            return DnsStatus::Ok;
+        }
+        case 64:    // SVCB
+        case 65: {  // HTTPS: priority target param-list (alpn,h2,...)
+            if (rdlen < 3) return DnsStatus::MalformedRdata;
+            size_t p = pos + 2;  // skip the 2-byte priority
+            std::string target;
+            DnsStatus s = readName(data, len, &p, &target);
+            if (s != DnsStatus::Ok) return s;
+            std::string result = std::to_string(rdU16(r)) + " " + target;
+            // SvcParams: key(2) len(2) value, rendered as key=value pairs.
+            size_t q = p;
+            const size_t endPos = pos + rdlen;
+            while (q + 4 <= endPos) {
+                uint16_t key = rdU16(data + q);
+                uint16_t vlen = rdU16(data + q + 2);
+                q += 4;
+                if (q + vlen > endPos) return DnsStatus::MalformedRdata;
+                result += " " + svcbParamKey(key) + "=" +
+                          labelString(data + q, vlen);
+                q += vlen;
+            }
+            *out = result;
+            return DnsStatus::Ok;
+        }
         default: {
             *out = labelString(r, rdlen);
             return DnsStatus::Ok;
@@ -214,6 +272,8 @@ DnsStatus parseDnsResponse(const uint8_t* data, size_t len, DnsMessage* out) {
     out->rcode = static_cast<uint16_t>(out->flags & 0x0Fu);
     uint16_t qdcount = static_cast<uint16_t>((data[4] << 8) | data[5]);
     uint16_t ancount = static_cast<uint16_t>((data[6] << 8) | data[7]);
+    uint16_t nscount = static_cast<uint16_t>((data[8] << 8) | data[9]);
+    uint16_t arcount = static_cast<uint16_t>((data[10] << 8) | data[11]);
     size_t pos = 12;
 
     for (uint16_t i = 0; i < qdcount; ++i) {
@@ -227,22 +287,76 @@ DnsStatus parseDnsResponse(const uint8_t* data, size_t len, DnsMessage* out) {
         out->questions.push_back(std::move(q));
     }
 
-    for (uint16_t i = 0; i < ancount; ++i) {
-        DnsAnswer a;
-        DnsStatus s = readName(data, len, &pos, &a.name);
-        if (s != DnsStatus::Ok) return s;
-        if (pos + 10 > len) return DnsStatus::Malformed;
-        a.type = static_cast<uint16_t>((data[pos] << 8) | data[pos + 1]);
-        a.cls = static_cast<uint16_t>((data[pos + 2] << 8) | data[pos + 3]);
-        a.ttl = rdU32(data + pos + 4);
-        uint16_t rdlen = static_cast<uint16_t>((data[pos + 8] << 8) | data[pos + 9]);
-        pos += 10;
-        s = renderRdata(data, len, pos, a.type, rdlen, &a.rdataText);
-        if (s != DnsStatus::Ok) return s;
-        pos += rdlen;
-        out->answers.push_back(std::move(a));
-    }
+    // Shared walker for answer / authority / additional sections.
+    auto walkSection = [&](uint16_t count, std::vector<DnsAnswer>* section,
+                           bool allowOpt) -> DnsStatus {
+        for (uint16_t i = 0; i < count; ++i) {
+            DnsAnswer a;
+            DnsStatus s = readName(data, len, &pos, &a.name);
+            if (s != DnsStatus::Ok) return s;
+            if (pos + 10 > len) return DnsStatus::Malformed;
+            a.type = static_cast<uint16_t>((data[pos] << 8) | data[pos + 1]);
+            a.cls = static_cast<uint16_t>((data[pos + 2] << 8) | data[pos + 3]);
+            a.ttl = rdU32(data + pos + 4);
+            uint16_t rdlen = static_cast<uint16_t>((data[pos + 8] << 8) | data[pos + 9]);
+            pos += 10;
+            if (pos + rdlen > len) return DnsStatus::Malformed;
+
+            // OPT pseudo-RR (RFC 6891): owner root, type 41. The class field
+            // is the UDP payload size, the TTL packs ext-rcode/version/flags.
+            if (a.type == 41 && allowOpt) {
+                out->edns.present = true;  // MUT:!
+                out->edns.udpPayloadSize = a.cls;
+                out->edns.extendedRcode = static_cast<uint8_t>(a.ttl >> 24);
+                out->edns.version = static_cast<uint8_t>((a.ttl >> 16) & 0xffu);
+                out->edns.dnssecOk = (a.ttl & 0x8000u) != 0u;
+                size_t q2 = pos;
+                const size_t endPos = pos + rdlen;
+                while (q2 + 4 <= endPos) {
+                    DnsEdnsOption opt;
+                    opt.code = rdU16(data + q2);
+                    uint16_t olen = rdU16(data + q2 + 2);
+                    q2 += 4;
+                    if (q2 + olen > endPos) return DnsStatus::MalformedRdata;
+                    opt.data.assign(data + q2, data + q2 + olen);
+                    q2 += olen;
+                    out->edns.options.push_back(std::move(opt));
+                }
+                pos += rdlen;
+                continue;
+            }
+            s = renderRdata(data, len, pos, a.type, rdlen, &a.rdataText);
+            if (s != DnsStatus::Ok) return s;
+            pos += rdlen;
+            section->push_back(std::move(a));
+        }
+        return DnsStatus::Ok;
+    };
+
+    DnsStatus s = walkSection(ancount, &out->answers, false);
+    if (s != DnsStatus::Ok) return s;
+    s = walkSection(nscount, &out->authorities, false);
+    if (s != DnsStatus::Ok) return s;
+    s = walkSection(arcount, &out->additionals, true);
+    if (s != DnsStatus::Ok) return s;
     return DnsStatus::Ok;
+}
+
+std::string dnsEdnsOptionName(uint16_t code) {
+    switch (code) {
+        case 3: return "nsid";
+        case 5: return "nosi";
+        case 8: return "ecs";
+        case 10: return "cookie";
+        case 11: return "keepalive";
+        case 12: return "padding";
+        case 9: return "expire";
+        case 13: return "chain";
+        case 14: return "key-tag";
+        case 15: return "extended-dns-error";
+        case 26946: return "deviceid";
+        default: return "unknown(" + std::to_string(code) + ")";
+    }
 }
 
 std::string dnsTypeMnemonic(uint16_t type) {
@@ -257,6 +371,8 @@ std::string dnsTypeMnemonic(uint16_t type) {
         case 28: return "AAAA";
         case 33: return "SRV";
         case 41: return "OPT";
+        case 64: return "SVCB";
+        case 65: return "HTTPS";
         case 255: return "ANY";
         case 257: return "CAA";
         default: break;

@@ -22,6 +22,8 @@ set(ENGINE_SOURCES
     src/ws.cpp
     src/quic.cpp
     src/md5.cpp
+    src/sha256.cpp
+    src/ja4.cpp
     src/tls.cpp
     src/hpack.cpp
     src/body.cpp
@@ -30,6 +32,7 @@ set(ENGINE_SOURCES
     src/pcap_write.cpp
     src/export_lines.cpp
     src/packet_build.cpp
+    src/stats.cpp
     src/stack.cpp
     src/engine.cpp)
 
@@ -53,13 +56,17 @@ if (BUILD_TESTS)
         tests/test_ws_quic.cpp
         tests/test_engine.cpp
         tests/test_md5.cpp
+        tests/test_sha256.cpp
+        tests/test_ja4.cpp
+        tests/test_quic_long.cpp
         tests/test_tls.cpp
         tests/test_hpack.cpp
         tests/test_body.cpp
         tests/test_multipart_pcapng.cpp
         tests/test_pcap_write.cpp
         tests/test_export_lines.cpp
-        tests/test_stack.cpp)
+        tests/test_stack.cpp
+        tests/test_stats.cpp)
     target_link_libraries(engine_tests PRIVATE traffic_engine)
     add_test(NAME engine_tests COMMAND engine_tests)
 endif()

@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:HttpRewriter.kt$HttpRewriter$fun applyTo(exchange: MutableExchange): RewriteResult</ID>
+    <ID>LoopWithTooManyJumpStatements:HttpRewriter.kt$HttpRewriter$for</ID>
+    <ID>UnusedPrivateProperty:HttpRewriter.kt$HttpRewriter$val apply: (MatchResult) -&gt; CharSequence = { m -&gt; if (count &lt; action.maxReplacements) { count++ m.value.replace(regex, action.replacement) } else { m.value } }</ID>
+  </CurrentIssues>
+</SmellBaseline>

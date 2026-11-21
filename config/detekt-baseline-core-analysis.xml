@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:FilterEngine.kt$CaptureFilter$fun matches(c: CapturedRequest): Boolean</ID>
+    <ID>CyclomaticComplexMethod:FilterEngine.kt$CaptureFilter.Companion$fun parse(query: String): CaptureFilter</ID>
+    <ID>NestedBlockDepth:FilterEngine.kt$CaptureFilter.Companion$fun parse(query: String): CaptureFilter</ID>
+    <ID>RethrowCaughtException:FilterEngine.kt$CaptureFilter.Companion$throw e</ID>
+    <ID>ThrowsCount:FilterEngine.kt$CaptureFilter.Companion$fun parse(query: String): CaptureFilter</ID>
+  </CurrentIssues>
+</SmellBaseline>

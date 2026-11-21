@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:MitmProxyServer.kt$MitmProxyServer$private fun serveOne( clientInput: InputStream, clientOutput: OutputStream, scheme: String, defaultHost: String, defaultPort: Int, tls: Boolean, head: HttpIo.Head, ): Boolean</ID>
+    <ID>EmptyFunctionBlock:HttpRelay.kt$&lt;no name provided&gt;${}</ID>
+    <ID>LongParameterList:MitmProxyServer.kt$MitmProxyServer$( exchangeId: Long, started: Long, ctx: MutableProxyExchange, decision: ProxyDecision?, status: Int?, responseHeaders: MutableHeaders, responseBody: ByteArray?, requestBytes: Long, responseBytes: Long, tls: Boolean, error: String?, )</ID>
+    <ID>LoopWithTooManyJumpStatements:HttpRelay.kt$HttpRelay$while</ID>
+    <ID>LoopWithTooManyJumpStatements:HttpRelay.kt$HttpRelay.Http1Response$for</ID>
+    <ID>LoopWithTooManyJumpStatements:MitmProxyServer.kt$HttpIo$while</ID>
+    <ID>LoopWithTooManyJumpStatements:MitmProxyServer.kt$MitmProxyServer$while</ID>
+    <ID>NestedBlockDepth:MitmProxyServer.kt$MitmProxyServer$private fun serveOne( clientInput: InputStream, clientOutput: OutputStream, scheme: String, defaultHost: String, defaultPort: Int, tls: Boolean, head: HttpIo.Head, ): Boolean</ID>
+    <ID>ThrowsCount:HttpRelay.kt$HttpRelay$private fun readBody(input: InputStream, headers: Map&lt;String, String&gt;, allowEof: Boolean): ByteArrayOutputStream?</ID>
+    <ID>ThrowsCount:HttpRelay.kt$HttpRelay$private fun readChunked(input: InputStream): ByteArrayOutputStream</ID>
+    <ID>ThrowsCount:HttpRelay.kt$HttpRelay$private fun readResponse(input: InputStream): Http1Response</ID>
+    <ID>UnusedParameter:MitmProxyServer.kt$MitmProxyServer$decision: ProxyDecision?</ID>
+    <ID>UnusedParameter:MitmProxyServer.kt$MitmProxyServer$input: InputStream</ID>
+  </CurrentIssues>
+</SmellBaseline>

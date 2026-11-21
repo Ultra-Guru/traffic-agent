@@ -15,10 +15,6 @@ namespace {
 const char* kExpectedJa3 = "771,4865-4866-49195-49199-255,0-11-10-13-16-43,29-23,0";
 const char* kExpectedJa3Md5 = "21d2e3024b63e0bac86dd07f7fb8c2bf";
 
-std::string strOf(const std::vector<uint8_t>& b) {
-    return std::string(b.begin(), b.end());
-}
-
 }  // namespace
 
 TA_TEST(tls_full_client_hello_fields) {
